@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Christoph Niemann
+ * Copyright (C) 2015 Felix Ruess <felix.ruess@gmail.com>
  *
  * This file is part of paparazzi.
  *
@@ -14,23 +14,23 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with paparazzi; see the file COPYING.  If not, write to
- * the Free Software Foundation, 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * along with Paparazzi; see the file COPYING.  If not, see
+ * <http://www.gnu.org/licenses/>.
+ */
+
+/**
+ * @file subsystems/ahrs/ahrs_int_cmpl_euler_wrapper.h
  *
+ * Paparazzi specific wrapper to run floating point DCM filter.
  */
 
-/** \file openlog.h
- * This module provides a timestamp-message, allowing
- * sw/logalizer/openlog2tlm to convert a recorded dumpfile,
- * created by openlog into the pprz-tlm format, to be converted into
- * .data and .log files by sw/logalizer/sd2log
- */
+#ifndef AHRS_INT_CMPL_EULER_WRAPPER_H
+#define AHRS_INT_CMPL_EULER_WRAPPER_H
 
-#ifndef OPENLOG_H
-#define OPENLOG_H
+#include "subsystems/ahrs/ahrs_int_cmpl_euler.h"
 
-void init_openlog(void);
-void periodic_2Hz_openlog(void);
+#define DefaultAhrsImpl ahrs_ice
 
-#endif
+extern void ahrs_ice_register(void);
+
+#endif /* AHRS_INT_CMPL_EULER_WRAPPER_H */

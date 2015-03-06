@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 The Paparazzi Team
+ * Copyright (C) 2011 Christoph Niemann
  *
  * This file is part of paparazzi.
  *
@@ -20,18 +20,21 @@
  */
 
 /**
- * @file subsystems/ahrs/ahrs_infrared.h
+ * @file openlog.c
  *
- * Fixedwing attitude estimation using infrared sensors.
- *
+ * This module provides a timestamp-message, allowing
+ * sw/logalizer/openlog2tlm to convert a recorded dumpfile,
+ * created by openlog into the pprz-tlm format, to be converted into
+ * .data and .log files by sw/logalizer/sd2log
  */
 
-#ifndef AHRS_INFRARED_H
-#define AHRS_INFRARED_H
+#include "openlog.h"
+#include "messages.h"
+#include "subsystems/datalink/downlink.h"
+#include "mcu_periph/sys_time.h"
 
-#include "subsystems/ahrs.h"
-#include "std.h"
-
-extern void ahrs_update_infrared(void);
-
-#endif /* AHRS_INFRARED_H */
+void periodic_2Hz_openlog(void)
+{
+  uint32_t timestamp = get_sys_time_msec();
+  DOWNLINK_SEND_TIMESTAMP(DefaultChannel, DefaultDevice, &timestamp);
+}
