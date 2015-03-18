@@ -1,0 +1,34 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="mavproject" dir="mavproject">
+  <doc>
+    <description>
+	Main module for obstacle avoidance implementation
+</description>
+  </doc>
+  <header>
+    <file name="mavproject_module.h"/>
+  </header>
+  <init fun="init_autonomous_flight()"/>
+  <periodic fun="run_autonomous_flight()" freq="1." start="start_autonomous_flight()" stop="stop_autonomous_flight()" autorun="TRUE"/>  
+  <makefile>
+    <raw>
+#Example of RAW makefile part
+    </raw>
+    <!-- BAS: No constants defined yet. Below is an example from demo module.
+    <define name="DEMO_MODULE_LED" value="2"/>
+    -->
+    <file name="mavproject_module.c"/>
+    <file name="mavproject_optical_flow.c"/>
+    <file name="mavproject_navigation.c"/>
+    <!-- Add supporting files (such as Lucas-Kanade source code) here -->
+
+  </makefile>
+ <!-- BAS: not sure if this does anything useful, probably just to show something
+  <makefile target="demo">
+    <define name="SOME_FLAG"/>
+    <configure name="SOME_DEFINE" value="bla"/>
+  </makefile>
+    -->
+</module>
+
