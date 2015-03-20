@@ -7,7 +7,12 @@
 #ifndef MAVPROJECT_NAVIGATION_H
 #define MAVPROJECT_NAVIGATION_H
 
-void mavproject_navigate(void);
+#include "std.h"
 
+
+void obstacle_avoidance_change_heading(int32_t heading_change);
+void set_yaw_sp_to_angle(int32_t angle);
+void set_yaw_sp_to_heading(void);
+void obstacle_avoidance_stop(void);
 
 #endif
