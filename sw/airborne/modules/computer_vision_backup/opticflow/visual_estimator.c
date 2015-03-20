@@ -34,10 +34,10 @@
 #include <stdlib.h>
 
 // Own Header
-#include "visual_estimator.h" // Has been edited
+#include "visual_estimator.h"
 
 // Computer Vision
-#include "opticflow/optic_flow_int.h" // Has been edited
+#include "opticflow/optic_flow_int.h"
 #include "opticflow/fast9/fastRosten.h"
 
 // for FPS
@@ -60,15 +60,15 @@ struct visual_estimator_struct
   int old_img_init;
 
   // Store previous
-  float prev_yaw;
+  float prev_pitch;
   float prev_roll;
 } visual_estimator;
 
-// ARDrone Vertical Camera Parameters Change this to Frontal Camera Parameters
-#define FOV_H 0.67020643276 // Change this to Frontal Camera Parameters
-#define FOV_W 0.89360857702 // Change this to Frontal Camera Parameters
-//REMOVED_MAV #define Fx_ARdrone 343.1211
-//REMOVED_MAV #define Fy_ARdrone 348.5053
+// ARDrone Vertical Camera Parameters
+#define FOV_H 0.67020643276
+#define FOV_W 0.89360857702
+#define Fx_ARdrone 343.1211
+#define Fy_ARdrone 348.5053
 
 // Corner Detection
 #define MAX_COUNT 100
@@ -89,26 +89,21 @@ void opticflow_plugin_init(unsigned int w, unsigned int h, struct CVresults *res
   visual_estimator.prev_gray_frame = (unsigned char *) calloc(w * h, sizeof(uint8_t));
 
   visual_estimator.old_img_init = 1;
-  visual_estimator.prev_yaw = 0.0;
+  visual_estimator.prev_pitch = 0.0;
   visual_estimator.prev_roll = 0.0;
 
-//REMOVED_MAV   results->OFx = 0.0;
-//REMOVED_MAV   results->OFy = 0.0;
-//REMOVED_MAV  results->dx_sum = 0.0;
-//REMOVED_MAV   results->dy_sum = 0.0;
+  results->OFx = 0.0;
+  results->OFy = 0.0;
+  results->dx_sum = 0.0;
+  results->dy_sum = 0.0;
   results->diff_roll = 0.0;
-  results->diff_yaw = 0.0;
-//REMOVED_MAV   results->cam_h = 0.0;
-//REMOVED_MAV   results->Velx = 0.0;
-//REMOVED_MAV   results->Vely = 0.0;
+  results->diff_pitch = 0.0;
+  results->cam_h = 0.0;
+  results->Velx = 0.0;
+  results->Vely = 0.0;
   results->flow_count = 0;
   results->cnt = 0;
   results->count = 0;
-  results->OFtotal = 0; //Total optic flow, has been added. 
-  results->OFtotalL = 0; // Total optic flow on the left has been added.
-  results->OFtotalR = 0; // Total optic flow on the right has been added.
-  results->OFFlessZone = 0; // Size of the featureless zone has been added.
-  results->OFFlessZonePos = 0; // Center of the featureless zone has been added.
 
   framerate_init();
 }
@@ -122,7 +117,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   int x[MAX_COUNT], y[MAX_COUNT];
   int new_x[MAX_COUNT], new_y[MAX_COUNT];
   int status[MAX_COUNT];
-  int dx[MAX_COUNT];
+  int dx[MAX_COUNT], dy[MAX_COUNT];
   int w = visual_estimator.imgWidth;
   int h = visual_estimator.imgHeight;
 
@@ -213,15 +208,15 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
     }
   }
 
-//REMOVED_MAV  results->dx_sum = 0.0;
-//REMOVED_MAV  results->dy_sum = 0.0;
+  results->dx_sum = 0.0;
+  results->dy_sum = 0.0;
 
   // Optical Flow Computation
   for (int i = 0; i < results->flow_count; i++) {
     dx[i] = new_x[i] - x[i];
     dy[i] = new_y[i] - y[i];
   }
-/* REMOVED_MAV 
+
   // Median Filter
   if (results->flow_count) {
     quick_sort_int(dx, results->flow_count); // 11
@@ -233,51 +228,32 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
     results->dx_sum = 0.0;
     results->dy_sum = 0.0;
   }
-REMOVED_MAV */
 
   // Flow Derotation
-  results->diff_yaw = (info->psi - visual_estimator.prev_yaw) * w / FOV_W; // Changed pitch to yaw and psi
+  results->diff_pitch = (info->theta - visual_estimator.prev_pitch) * h / FOV_H;
   results->diff_roll = (info->phi - visual_estimator.prev_roll) * w / FOV_W;
-  visual_estimator.prev_yaw = info->psi; // Changed to yaw and psi
+  visual_estimator.prev_pitch = info->theta;
   visual_estimator.prev_roll = info->phi;
 
-
-// Change loop over the dy array.
-float dx_t[MAX_COUNT];
-
-// Added this loop
-for (int i = 0; i < results->flow_count; i++){
+  float OFx_trans, OFy_trans;
 #ifdef FLOW_DEROTATION
   if (results->flow_count) {
-    dx_t[i] = dx[i] - (new_y[i] - h / 2) * results->diff_roll; // derotate the dx for roll
-    dx_t[i] = dx_t[i] - results->diff_yaw; // derotate for yaw
+    OFx_trans = results->dx_sum - results->diff_roll;
+    OFy_trans = results->dy_sum - results->diff_pitch;
 
-    if ((dx_t[i] <= 0) != (dx[i] <= 0)) {
-      dx_t[i] = 0;
+    if ((OFx_trans <= 0) != (results->dx_sum <= 0)) {
+      OFx_trans = 0;
+      OFy_trans = 0;
     }
   } else {
-    dx_t[i] = dx[i];
+    OFx_trans = results->dx_sum;
+    OFy_trans = results->dy_sum;
   }
 #else
-  dx_t[i] = dx[i];
+  OFx_trans = results->dx_sum;
+  OFy_trans = results->dy_sum;
 #endif
-}
-// This things
 
-for (int i = 0; i < results->flow_count; i++){
-  results->OFtotal = results->OFtotal + dx[i];
-}
-
-printf("lolz %f", results->OFtotal);
-
-// ADD total, total left, total right...
-
-// ADD featureless zone algorithm...
-
-// ADD commands...
-
-
-/* REMOVED_MAV
   // Average Filter
   OFfilter(&results->OFx, &results->OFy, OFx_trans, OFy_trans, results->flow_count, 1);
 
@@ -296,7 +272,7 @@ printf("lolz %f", results->OFtotal);
     results->Velx = 0.0;
     results->Vely = 0.0;
   }
-REMOVED_MAV */
+
   // *************************************************************************************
   // Next Loop Preparation
   // *************************************************************************************

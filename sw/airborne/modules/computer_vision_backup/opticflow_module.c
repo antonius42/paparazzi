@@ -26,14 +26,14 @@
  */
 
 
-#include "opticflow_module.h" // Has been edited
+#include "opticflow_module.h"
 
 // Computervision Runs in a thread
-#include "opticflow/opticflow_thread.h" // Has been edited
-#include "opticflow/inter_thread_data.h" // Has been edited
+#include "opticflow/opticflow_thread.h"
+#include "opticflow/inter_thread_data.h"
 
 // Navigate Based On Vision, needed to call init/run_hover_stabilization_onvision
-//REMOVED_MAV #include "opticflow/hover_stabilization.h"
+#include "opticflow/hover_stabilization.h"
 
 // Threaded computer vision
 #include <pthread.h>
@@ -84,13 +84,11 @@ void opticflow_module_init(void)
   // Initialize local data
   opticflow_module_data.cnt = 0;
   opticflow_module_data.phi = 0;
-  opticflow_module_data.psi = 0;
+  opticflow_module_data.theta = 0;
   opticflow_module_data.agl = 0;
 
   // Stabilization Code Initialization
-//REMOVED_MAV   init_hover_stabilization_onvision();
-//
-// ADD our own code function.
+  init_hover_stabilization_onvision();
 }
 
 
@@ -99,7 +97,7 @@ void opticflow_module_run(void)
   // Send Updated data to thread
   opticflow_module_data.cnt++;
   opticflow_module_data.phi = stateGetNedToBodyEulers_f()->phi;
-  opticflow_module_data.psi = stateGetNedToBodyEulers_f()->psi;
+  opticflow_module_data.theta = stateGetNedToBodyEulers_f()->theta;
   int bytes_written = write(cv_sockets[0], &opticflow_module_data, sizeof(opticflow_module_data));
   if (bytes_written != sizeof(opticflow_module_data) && errno !=4){
     printf("[module] Failed to write to socket: written = %d, error=%d, %s.\n",bytes_written, errno, strerror(errno));
@@ -121,9 +119,7 @@ void opticflow_module_run(void)
     // Module-Side Code
     ////////////////////////////////////////////
     DEBUG_INFO("[module] Read vision %d\n",vision_results.cnt);
-//REMOVED_MAV     run_hover_stabilization_onvision(&vision_results);
-//
-// ADD our own code function!
+    run_hover_stabilization_onvision(&vision_results);
   }
 }
 

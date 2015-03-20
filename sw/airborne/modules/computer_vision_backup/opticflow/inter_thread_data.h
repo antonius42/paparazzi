@@ -33,28 +33,23 @@
 struct CVresults {
   int cnt;          // Number of processed frames
 
-//REMOVED_MAV  float Velx;       // Velocity as measured by camera
-//REMOVED_MAV   float Vely;
+  float Velx;       // Velocity as measured by camera
+  float Vely;
   int flow_count;
 
-//REMOVED_MAV   float cam_h;      // Debug parameters
+  float cam_h;      // Debug parameters
   int count;
-//REMOVED_MAV   float OFx, OFy;//REMOVED_MAV  , dx_sum, dy_sum;
+  float OFx, OFy, dx_sum, dy_sum;
   float diff_roll;
-  float diff_yaw; // Changed pitch to yaw
+  float diff_pitch;
   float FPS;
-  float OFtotal; //Total optic flow, has been added. 
-  float OFtotalL; // Total optic flow on the left has been added.
-  float OFtotalR; // Total optic flow on the right has been added.
-  float OFFlessZone; // Size of the featureless zone has been added.
-  float OFFlessZonePos; // Center of the featureless zone has been added.
 };
 
 /// Data from module to thread
 struct PPRZinfo {
   int cnt;        // IMU msg counter
   float phi;      // roll [rad]
-  float psi;    // yaw [rad]   Changed pitch to yaw.
+  float theta;    // pitch [rad]
   float agl;      // height above ground [m]
 };
 

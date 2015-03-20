@@ -29,7 +29,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "opticflow_thread.h" // Has been edited
+#include "opticflow_thread.h" // Change name?
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -45,10 +45,10 @@
 // Downlink Video
 //#define DOWNLINK_VIDEO 1
 
-/*#ifdef DOWNLINK_VIDEO
+#ifdef DOWNLINK_VIDEO
 #include "encoding/jpeg.h"
 #include "encoding/rtp.h"
-#endif*/
+#endif
 
 #include <stdio.h>
 #define DEBUG_INFO(X, ...) ;
@@ -142,7 +142,7 @@ void *computervision_thread_main(void *args)
 
     //printf("Sending an image ...%u\n", size);
     send_rtp_frame(vsock, jpegbuf, size, dev->w, dev->h, 0, quality_factor, dri_header, 0);
-#endif 
+#endif
 
     // Free the image
     v4l2_image_free(dev, img);
