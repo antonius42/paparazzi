@@ -29,6 +29,7 @@
 
 #include "std.h"
 
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -42,7 +43,7 @@
 
 // for FPS
 #include "modules/computer_vision/cv/framerate.h"
-
+int disp_counter;  // Added a counter for the display
 
 // Local variables
 struct visual_estimator_struct
@@ -109,6 +110,8 @@ void opticflow_plugin_init(unsigned int w, unsigned int h, struct CVresults *res
   results->OFtotalR = 0; // Total optic flow on the right has been added.
   results->OFFlessZone = 0; // Size of the featureless zone has been added.
   results->OFFlessZonePos = 0; // Center of the featureless zone has been added.
+
+  disp_counter = 0; // Display counter
 
   framerate_init();
 }
@@ -219,7 +222,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   // Optical Flow Computation
   for (int i = 0; i < results->flow_count; i++) {
     dx[i] = new_x[i] - x[i];
-    dy[i] = new_y[i] - y[i];
+//    dy[i] = new_y[i] - y[i];
   }
 /* REMOVED_MAV 
   // Median Filter
@@ -262,17 +265,72 @@ for (int i = 0; i < results->flow_count; i++){
   dx_t[i] = dx[i];
 #endif
 }
-// This things
+
+
+// Calculate total optical flow
+results->OFtotal = 0;
 
 for (int i = 0; i < results->flow_count; i++){
   results->OFtotal = results->OFtotal + dx[i];
 }
 
-printf("lolz %f", results->OFtotal);
-
+  disp_counter++;
+  if (disp_counter == 30){
+  printf("Total OF %f \n", results->OFtotal);
+  printf("Number of features %f \n",results->flow_count);
+  disp_counter = 0;
+  }
 // ADD total, total left, total right...
 
+/*
+
+float temp0, temp1;
+float total_optic, total_left, total_right; // rename me
+total_optic=0;
+total_left=0;
+total_right=0;
+
+// Sort the feature x locations x_new, and horizontal optical flow component dx_t
+for (int i=0; i<(results->flow_count-1);i++){
+	for (int j=0;j<(results->flow_count-1-i);j++){
+		if (new_x[j]>new_x[j+1]){
+		   temp0=new_x[j+1];
+		   new_x[j+1]=new_x[j];
+		   new_x[j]=temp0;
+		   temp1=dx_t[j+1];
+		   dx_t[j+1]=dx_t[j];
+		   dx_t[j]=temp1;
+		}
+	}	
+}
+for(int i=0; i<results->flowcount;i++)
+	if (){
+}
+
+*/
+
 // ADD featureless zone algorithm...
+
+/*
+
+float dx_feature; // comment me
+int loc_feature; // comment me
+
+
+quick_sort_int(new_x, results->flow_count);
+
+for(int i=0;i<(results->flow_count-1);i++){
+
+    dx_feature=new_x[i+1]-new_x[i];  // comment me
+	if(dx_feature>results->OFFlesszone){
+		results->OFFlessZone=dx_feature;  // comment me
+		loc_feature = dx_feature /2 + new_x[i];  // comment me
+		results->OFFlessZonePos=loc_feature;  // comment me
+	}
+}
+
+*/
+
 
 // ADD commands...
 
