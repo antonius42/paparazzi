@@ -70,11 +70,31 @@
       <go from="p2" hmode="route" wp="p1"/>
       <deroute block="stay_p1"/>
     </block>
-    <block name="obstacle_avoidance">
-      <exception cond="! InsideFlightArena(GetPosX(), GetPosY())" deroute="Standby"/>
-      <heading course="0" pitch="5" alt="ground_alt()+1" until="! InsideFlightArena(GetPosX(), GetPosY())"/>
+    <!-- Custom-made blocks for testing heading flight -->
+	<block name="fly north, at pitch 2">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
+      <heading course="0" pitch="2" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
       <deroute block="Standby"/>
     </block>
+    <block name="fly heading 10deg, pitch 3">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
+      <heading course="10" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
+      <deroute block="Standby"/>
+    </block>
+	<block name="fly heading 20deg, pitch 5">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
+      <heading course="20" pitch="5" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
+      <deroute block="Standby"/>
+    </block>
+	<block name="fly north and back">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
+      <heading course="0" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
+	  <heading course="170" pitch="0" vmode="alt" alt="GetAltRef()+1.5" until="stage_time>2"/>
+ 	  <heading course="170" pitch="2" vmode="alt" alt="GetAltRef()+1.5" until="stage_time>2"/>
+	  <heading course="170" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="!InsideFlight_Area(GetPosX(), GetPosY())"/>
+      <deroute block="Standby"/>
+    </block>
+    <!---->
     <block name="route">
       <go from="p1" hmode="route" wp="p3"/>
       <go from="p3" hmode="route" wp="p4"/>
