@@ -75,7 +75,8 @@ void *computervision_thread_main(void *args)
    * video1 = front camera; video2 = bottom camera
    */
   // Create a V4L2 device
-  struct v4l2_device *dev = v4l2_init("/dev/video2", 320, 240, 10);
+  struct v4l2_device *dev = v4l2_init("/dev/video1", 1280, 720, 10); // Changed this to the frontal camera
+// struct v4l2_device *dev = v4l2_init("/dev/video2", 320, 240, 10);
   if (dev == NULL) {
     printf("Error initialising video\n");
     return 0;

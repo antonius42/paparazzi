@@ -143,7 +143,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   // *************************************************************************************
 
   // FAST corner detection
-  int fast_threshold = 20;
+  int fast_threshold = 20; // original threshold = 20
   xyFAST *pnts_fast;
   pnts_fast = fast9_detect((const byte *)visual_estimator.prev_gray_frame, w, h, w,
                            fast_threshold, &results->count);
@@ -154,9 +154,14 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   }
   free(pnts_fast);
 
-  if (disp_counter == 29){
-  printf("Number of features %i \n",results->flow_count);
-  }
+  if (disp_counter == 9){
+  printf("Number of features from Fast = %i \n",results->count);
+/*
+    for (int i = 0; i < results->count; i++){
+    printf("x(%i)=%i,y(%i)=%i,",i+1,x[i],i+1,y[i]);
+    }
+    printf(" \n");
+*/  }
 
   // Remove neighboring corners
   const float min_distance = 3;
@@ -172,7 +177,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
     }
   }
 
-  int count_fil = results->count;
+  int count_fil = results->count;  
   for (int i = results->count - 1; i >= 0; i--) {
     int remove_point = 0;
 
@@ -187,10 +192,16 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
       }
       count_fil--;
     }
+  } 
+
+  if (disp_counter == 9){
+  printf("Number of features after feature removal = %i \n",count_fil);
   }
 
   if (count_fil > max_count) { count_fil = max_count; }
   results->count = count_fil;
+
+
 
   // *************************************************************************************
   // Corner Tracking
@@ -279,7 +290,7 @@ for (int i = 0; i < results->flow_count; i++){
 }
 
   disp_counter++;
-  if (disp_counter == 30){
+  if (disp_counter == 10){
   printf("Total OF %f \n", results->OFtotal);
   printf("Number of features %i \n",results->flow_count);
   disp_counter = 0;
