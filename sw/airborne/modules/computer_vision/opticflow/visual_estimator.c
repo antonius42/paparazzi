@@ -45,8 +45,11 @@
 #include "modules/computer_vision/cv/framerate.h"
 int disp_counter;  // Added a counter for the display
 
+// For resize
+#include "modules/computer_vision/cv/resize.h"
+
 // Local variables
-struct visual_estimator_struct
+struct visual_estimator_struct	//Create struct of type visual_estimator_struct
 {
   // Image size
   unsigned int imgWidth;
@@ -56,6 +59,7 @@ struct visual_estimator_struct
   uint8_t *prev_frame;
   uint8_t *gray_frame;
   uint8_t *prev_gray_frame;
+  #define downsize_factor 4	// downscaling factor of the image
 
   // Initialization
   int old_img_init;
@@ -63,7 +67,7 @@ struct visual_estimator_struct
   // Store previous
   float prev_yaw;
   float prev_roll;
-} visual_estimator;
+} visual_estimator;	// Create an alias named visual_estimator, it contains a.o. the pointers *prev_frame *gray_frame and *prev_gray_frame
 
 // ARDrone Vertical Camera Parameters Change this to Frontal Camera Parameters
 #define FOV_H 0.67020643276 // Change this to Frontal Camera Parameters
@@ -84,10 +88,10 @@ void opticflow_plugin_init(unsigned int w, unsigned int h, struct CVresults *res
   // Initialize variables
   visual_estimator.imgWidth = w;
   visual_estimator.imgHeight = h;
-
-  visual_estimator.gray_frame = (unsigned char *) calloc(w * h, sizeof(uint8_t));
-  visual_estimator.prev_frame = (unsigned char *) calloc(w * h * 2, sizeof(uint8_t));
-  visual_estimator.prev_gray_frame = (unsigned char *) calloc(w * h, sizeof(uint8_t));
+  
+  visual_estimator.gray_frame = (unsigned char *) calloc(w/downsize_factor * h/downsize_factor, sizeof(uint8_t));	// Resized
+  visual_estimator.prev_frame = (unsigned char *) calloc(w/downsize_factor * h/downsize_factor * 2, sizeof(uint8_t));	// Resized
+  visual_estimator.prev_gray_frame = (unsigned char *) calloc(w/downsize_factor * h/downsize_factor, sizeof(uint8_t));	// Resized
 
   visual_estimator.old_img_init = 1;
   visual_estimator.prev_yaw = 0.0;
@@ -129,12 +133,39 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   int w = visual_estimator.imgWidth;
   int h = visual_estimator.imgHeight;
 
+// INSERT the resizing here...
+  // Resize image in memory located at pointer 'frame'
+  // frame == current frame, prev_frame == previous frame
+
+  
+  struct img_struct new_frame;	// initialize the image structure for the new frame new_frame
+  new_frame.w = w / downsize_factor;	// scale the new width with the downsize factor
+  new_frame.h = h / downsize_factor;	// scale the new height with the downsize factor
+  if (downsize_factor != 1) {
+    new_frame.buf = (uint8_t *)malloc(new_frame.w * new_frame.h * 2);	// reserve memory space for the frame
+  }
+
+  // Resize the image
+  if (downsize_factor != 1) {
+    struct img_struct cur_frame;	// initialize the image structure for the current frame: cur_frame
+    cur_frame.buf = frame;		// store the frame in the buffer, probably the image in [0-255] values ??
+    cur_frame.w = w;	// set the current frame width
+    cur_frame.h = h;	// set the current frame height
+    resize_uyuv(&cur_frame, &new_frame, downsize_factor);	// resize current frame using (adress of cur_frame, adress of new_frame and downsize_factor)
+    
+    // The new image is now stored in the memory at pointer new_frame.buf
+    
+    w = w / downsize_factor;	// Resize the image width variable
+    h = h / downsize_factor;	// Resize the image height variable
+  }
+  
   // Framerate Measuring
   results->FPS = framerate_run();
 
-  if (visual_estimator.old_img_init == 1) {
-    memcpy(visual_estimator.prev_frame, frame, w * h * 2);
-    CvtYUYV2Gray(visual_estimator.prev_gray_frame, visual_estimator.prev_frame, w, h);
+  if (visual_estimator.old_img_init == 1) {	// Run this for the first run (previous frame does not exist)
+//    memcpy(visual_estimator.prev_frame, frame, w * h * 2);	// Copy the data in pointer frame to the memory at pointer visual_estimator.prev_frame
+    memcpy(visual_estimator.prev_frame, new_frame.buf, w * h * 2);	// Copy the data in pointer new_frame.buf to the memory at pointer visual_estimator.prev_frame
+    CvtYUYV2Gray(visual_estimator.prev_gray_frame, visual_estimator.prev_frame, w, h);	// Create grayscale image
     visual_estimator.old_img_init = 0;
   }
 
@@ -143,7 +174,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   // *************************************************************************************
 
   // FAST corner detection
-  int fast_threshold = 20; // original threshold = 20
+  int fast_threshold = 40; // original threshold = 20
   xyFAST *pnts_fast;
   pnts_fast = fast9_detect((const byte *)visual_estimator.prev_gray_frame, w, h, w,
                            fast_threshold, &results->count);
@@ -156,12 +187,12 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
 
   if (disp_counter == 9){
   printf("Number of features from Fast = %i \n",results->count);
-/*
+
     for (int i = 0; i < results->count; i++){
     printf("x(%i)=%i,y(%i)=%i,",i+1,x[i],i+1,y[i]);
     }
     printf(" \n");
-*/  }
+  }
 
   // Remove neighboring corners
   const float min_distance = 3;
@@ -206,7 +237,8 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   // *************************************************************************************
   // Corner Tracking
   // *************************************************************************************
-  CvtYUYV2Gray(visual_estimator.gray_frame, frame, w, h);
+//  CvtYUYV2Gray(visual_estimator.gray_frame, frame, w, h);
+  CvtYUYV2Gray(visual_estimator.gray_frame, new_frame.buf, w, h);	// Used the pointer new_frame.buf to the resized image
 
   opticFlowLK(visual_estimator.gray_frame, visual_estimator.prev_gray_frame, x, y,
               count_fil, w, h, new_x, new_y, status, 5, 100);
@@ -392,7 +424,7 @@ REMOVED_MAV */
   // Next Loop Preparation
   // *************************************************************************************
 
-  memcpy(visual_estimator.prev_frame, frame, w * h * 2);
-  memcpy(visual_estimator.prev_gray_frame, visual_estimator.gray_frame, w * h);
+  memcpy(visual_estimator.prev_frame, frame, w * h * 2);	//data at pointer frame is copied to memory at pointer previous_frame
+  memcpy(visual_estimator.prev_gray_frame, visual_estimator.gray_frame, w * h);	//data at pointer gray_frame is copied to memory at pointer previous_gray_frame
 
 }
