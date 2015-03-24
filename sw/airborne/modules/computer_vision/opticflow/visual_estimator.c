@@ -154,6 +154,10 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   }
   free(pnts_fast);
 
+  if (disp_counter == 29){
+  printf("Number of features %i \n",results->flow_count);
+  }
+
   // Remove neighboring corners
   const float min_distance = 3;
   float min_distance2 = min_distance * min_distance;
@@ -277,15 +281,16 @@ for (int i = 0; i < results->flow_count; i++){
   disp_counter++;
   if (disp_counter == 30){
   printf("Total OF %f \n", results->OFtotal);
-  printf("Number of features %f \n",results->flow_count);
+  printf("Number of features %i \n",results->flow_count);
   disp_counter = 0;
   }
 // ADD total, total left, total right...
 
 /*
 
-float temp0, temp1;
-float total_optic, total_left, total_right; // rename me
+float temp0, temp1; // temperary variables to store data
+float total_optic, total_left, total_right; // total optical flow, optical flow on the right/left
+// set initial values for optical flow
 total_optic=0;
 total_left=0;
 total_right=0;
@@ -303,29 +308,46 @@ for (int i=0; i<(results->flow_count-1);i++){
 		}
 	}	
 }
-for(int i=0; i<results->flowcount;i++)
-	if (){
-}
-
+	// next loop calculates total flow and discard a beam in the middle of the image 
+	// The size of the beam should be fine tuned to a value that is desirable
+	for(int i = 0; i < results->flow_count; i++){
+		//beam
+		if (new_x[i] > ((w/2) - w*0.05) && new_x[i]<(((w/2) + w*0.05) ){ 
+			dx_t[i]=0;
+			}
+		//flow on the left side of the frame
+		if (new_x[i] < ((w/2) - w*0.05)){
+			distance_correction = (0.5*w - new_x[i]) / (0.5*w) //apply distance correction
+			results->OFtotalL += -1*dx_t*distance_correction;
+			}
+		// flow on the right side of the frame
+		if (new_x[i]>(((w/2) + w*0.05))){
+			distance_correction = ( -1*(new_x[i] - w)) / (0.5*w)
+			results->OFtotalR += dx_t*distance_correction;
+			}
+		}
+	// Total optical flow
+	results->OFtotal=results->OFtotalR+results->OFtotalL;
 */
+
+//------------------------------------------------------------------
+
 
 // ADD featureless zone algorithm...
 
 /*
 
-float dx_feature; // comment me
-int loc_feature; // comment me
 
-
-quick_sort_int(new_x, results->flow_count);
+float dx_feature; // horizontal distance between two points
+int loc_feature; // corresponding location
 
 for(int i=0;i<(results->flow_count-1);i++){
 
-    dx_feature=new_x[i+1]-new_x[i];  // comment me
+    dx_feature=new_x[i+1]-new_x[i]; // distance between 2 consecutive feature x-coordinates
 	if(dx_feature>results->OFFlesszone){
-		results->OFFlessZone=dx_feature;  // comment me
-		loc_feature = dx_feature /2 + new_x[i];  // comment me
-		results->OFFlessZonePos=loc_feature;  // comment me
+		results->OFFlessZone=dx_feature;  // Largest featureless zone of current frame
+		loc_feature = dx_feature /2 + new_x[i];  // middle of featureless zone
+		results->OFFlessZonePos=loc_feature;  // middle of largest featureless zone of c. frame
 	}
 }
 
