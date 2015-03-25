@@ -41,6 +41,7 @@
 
 // Payload Code
 #include "visual_estimator.h" // Change name?
+#include "mavproject_navigation.h"
 
 // Downlink Video
 //#define DOWNLINK_VIDEO 1
@@ -54,6 +55,9 @@
 #define DEBUG_INFO(X, ...) ;
 
 static volatile enum{RUN,EXIT} computer_vision_thread_command = RUN;  /** request to close: set to 1 */
+
+int count = 0;
+int max_count = 30;
 
 void computervision_thread_request_exit(void) {
   computer_vision_thread_command = EXIT;
@@ -122,8 +126,17 @@ void *computervision_thread_main(void *args)
 
     // Run Image Processing with image and data and get results
     opticflow_plugin_run(img->buf, &autopilot_data, &vision_results);
-
-    //printf("Vision result %f %f\n", vision_results.Velx, vision_results.Vely);
+    
+    // Test navigation command
+    count++;
+    if (count==20) {
+		obstacle_avoidance_update_waypoint(-10, 1);
+	}
+    if (count==120) {
+    	obstacle_avoidance_stop();
+        count = 0;
+    }
+    
 
     /* Send results to main */
     vision_results.cnt++;

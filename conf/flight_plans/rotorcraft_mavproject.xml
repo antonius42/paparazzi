@@ -94,6 +94,11 @@
 	  <heading course="170" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="!InsideFlight_Area(GetPosX(), GetPosY())"/>
       <deroute block="Standby"/>
     </block>
+    <block name="Set heading north, hover">
+      <call fun="nav_set_heading_deg(90)"/>
+      <deroute block="Standby"/>
+    </block>
+
     <!---->
     <block name="route">
       <go from="p1" hmode="route" wp="p3"/>
