@@ -424,7 +424,7 @@ REMOVED_MAV */
   // Next Loop Preparation
   // *************************************************************************************
 
-  memcpy(visual_estimator.prev_frame, frame, w * h * 2);	//data at pointer frame is copied to memory at pointer previous_frame
+  memcpy(visual_estimator.prev_frame, new_frame.buf, w * h * 2);	//data at pointer frame is copied to memory at pointer previous_frame
   memcpy(visual_estimator.prev_gray_frame, visual_estimator.gray_frame, w * h);	//data at pointer gray_frame is copied to memory at pointer previous_gray_frame
-
+free(new_frame.buf);
 }
