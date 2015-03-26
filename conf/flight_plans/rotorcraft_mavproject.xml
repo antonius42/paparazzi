@@ -83,8 +83,15 @@
     <block name="OA Turn Around">
 	  <call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+2.7))"/>
       <go from="FROM" wp="TO" hmode="route" until="stage_time>2"/>
-	  <deroute block="Obstacle Avoidance 1"/>
+	  <deroute block="Obstacle Avoidance 1"/>	
     </block>
+	<block name="Obstacle emergency stop">
+		<call fun="NavSetWaypointHere(WP_STDBY)"/>
+		<stay wp="STDBY" until="stage_time>1"/>
+		<call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+1.4))"/>
+		<go from="STDBY" wp="TO" hmode="route" until="stage_time>1"/>
+		<deroute block="Obstacle Avoidance 1"/>
+	</block>
     <!---->
     <block name="route">
       <go from="p1" hmode="route" wp="p3"/>
