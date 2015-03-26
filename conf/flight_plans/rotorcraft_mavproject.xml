@@ -3,12 +3,15 @@
 <flight_plan alt="150" ground_alt="147" lat0="51.990634" lon0="4.376789" max_dist_from_home="150" name="Rotorcraft Basic (Enac)" security_height="2">
   <header>
 #include "autopilot.h"
+#include "navigation.h"
   </header>
   <waypoints>
     <waypoint name="HOME" x="0.0" y="0.0"/>
     <waypoint name="CLIMB" x="0.0" y="5.0"/>
     <waypoint name="STDBY" x="-2.0" y="-5.0"/>
     <waypoint name="TD" x="5.6" y="-10.9"/>
+	<waypoint name="FROM" x="5.6" y="-10.9"/>
+	<waypoint name="TO" x="5.6" y="-10.9"/>
     <waypoint lat="51.990639" lon="4.376807" name="p1"/>
     <waypoint lat="51.990624" lon="4.376767" name="p2"/>
     <waypoint lat="51.990648" lon="4.376745" name="p3"/>
@@ -37,6 +40,8 @@
       <call fun="NavSetWaypointHere(WP_CLIMB)"/>
       <call fun="NavSetWaypointHere(WP_STDBY)"/>
       <call fun="NavSetWaypointHere(WP_TD)"/>
+	  <call fun="NavSetWaypointHere(WP_FROM)"/>
+	  <call fun="NavSetWaypointHere(WP_TO)"/>
       <call fun="NavSetAltitudeReferenceHere()"/>
     </block>
     <block name="Holding point">
@@ -71,34 +76,15 @@
       <deroute block="stay_p1"/>
     </block>
     <!-- Custom-made blocks for testing heading flight -->
-	<block name="fly north, at pitch 2">
-      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
-      <heading course="0" pitch="2" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
-      <deroute block="Standby"/>
+	<block name="Obstacle Avoidance 1">
+      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="OA Turn Around"/>
+      <go from="FROM" wp="TO" hmode="route"/>
     </block>
-    <block name="fly heading 10deg, pitch 3">
-      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
-      <heading course="10" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
-      <deroute block="Standby"/>
+    <block name="OA Turn Around">
+	  <call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+2.7))"/>
+      <go from="FROM" wp="TO" hmode="route" until="stage_time>2"/>
+	  <deroute block="Obstacle Avoidance 1"/>
     </block>
-	<block name="fly heading 20deg, pitch 5">
-      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
-      <heading course="20" pitch="5" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
-      <deroute block="Standby"/>
-    </block>
-	<block name="fly north and back">
-      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="Standby"/>
-      <heading course="0" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="! InsideFlight_Area(GetPosX(), GetPosY())"/>
-	  <heading course="170" pitch="0" vmode="alt" alt="GetAltRef()+1.5" until="stage_time>2"/>
- 	  <heading course="170" pitch="2" vmode="alt" alt="GetAltRef()+1.5" until="stage_time>2"/>
-	  <heading course="170" pitch="3" vmode="alt" alt="GetAltRef()+1.5" until="!InsideFlight_Area(GetPosX(), GetPosY())"/>
-      <deroute block="Standby"/>
-    </block>
-    <block name="Set heading north, hover">
-      <call fun="nav_set_heading_deg(90)"/>
-      <deroute block="Standby"/>
-    </block>
-
     <!---->
     <block name="route">
       <go from="p1" hmode="route" wp="p3"/>
