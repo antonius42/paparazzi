@@ -1,6 +1,6 @@
 <!DOCTYPE flight_plan SYSTEM "flight_plan.dtd">
 
-<flight_plan alt="150" ground_alt="147" lat0="51.990634" lon0="4.376789" max_dist_from_home="150" name="Rotorcraft Basic (Enac)" security_height="2">
+<flight_plan alt="2" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="150" name="Rotorcraft Basic (Enac)" security_height="1">
   <header>
 #include "autopilot.h"
 #include "navigation.h"
@@ -8,10 +8,10 @@
   <waypoints>
     <waypoint name="HOME" x="0.0" y="0.0"/>
     <waypoint name="CLIMB" x="0.0" y="5.0"/>
-    <waypoint name="STDBY" x="-2.0" y="-5.0"/>
-    <waypoint name="TD" x="5.6" y="-10.9"/>
-	<waypoint name="FROM" x="5.6" y="-10.9"/>
-	<waypoint name="TO" x="5.6" y="-10.9"/>
+    <waypoint name="STDBY" x="-2.0" y="-2.0"/>
+    <waypoint name="TD" x="5.6" y="-5.9"/>
+	<waypoint name="FROM" x="1.0" y="0.0"/>
+	<waypoint name="TO" x="1.0" y="-1.0"/>
     <waypoint lat="51.990639" lon="4.376807" name="p1"/>
     <waypoint lat="51.990624" lon="4.376767" name="p2"/>
     <waypoint lat="51.990648" lon="4.376745" name="p3"/>
@@ -20,13 +20,17 @@
     <waypoint lat="51.990606" lon="4.376760" name="FA2"/>
     <waypoint lat="51.990652" lon="4.376712" name="FA3"/>
     <waypoint lat="51.990681" lon="4.376791" name="FA4"/>
+	<!--waypoint lat="51.990638" lon="4.376815" name="FA1"/>
+    <waypoint lat="51.990619" lon="4.376766" name="FA2"/>
+    <waypoint lat="51.990649" lon="4.376736" name="FA3"/>
+    <waypoint lat="51.990668" lon="4.376786" name="FA4"/-->
   </waypoints>
   <sectors>
     <sector color="red" name="Flight_Area">
-      <corner name="FA4"/>
-      <corner name="FA3"/>
-      <corner name="FA2"/>
       <corner name="FA1"/>
+      <corner name="FA2"/>
+      <corner name="FA3"/>
+      <corner name="FA4"/>
     </sector>
   </sectors>
   <blocks>
@@ -35,13 +39,13 @@
       <while cond="!GpsFixValid()"/>
     </block>
     <block name="Geo init">
-      <while cond="LessThan(NavBlockTime(), 10)"/>
+      <while cond="LessThan(NavBlockTime(), 5)"/>
       <call fun="NavSetWaypointHere(WP_HOME)"/>
       <call fun="NavSetWaypointHere(WP_CLIMB)"/>
-      <call fun="NavSetWaypointHere(WP_STDBY)"/>
-      <call fun="NavSetWaypointHere(WP_TD)"/>
-	  <call fun="NavSetWaypointHere(WP_FROM)"/>
-	  <call fun="NavSetWaypointHere(WP_TO)"/>
+   <!--   <call fun="NavSetWaypointHere(WP_STDBY)"/>
+      <call fun="NavSetWaypointHere(WP_TD)"/>-->
+	 <!-- <call fun="NavSetWaypointHere(WP_FROM)"/>
+	  <call fun="NavSetWaypointHere(WP_TO)"/>-->
       <call fun="NavSetAltitudeReferenceHere()"/>
     </block>
     <block name="Holding point">
@@ -58,27 +62,17 @@
       <stay vmode="climb" climb="0.5" wp="CLIMB"/>
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
-      <call fun="NavSetWaypointHere(WP_STDBY)"/>
+      <!--call fun="NavSetWaypointHere(WP_STDBY)"/-->
       <stay wp="STDBY"/>
-    </block>
-    <block name="stay_p1">
-      <stay wp="p1"/>
-    </block>
-    <block name="go_p2">
-      <call fun="nav_set_heading_deg(90)"/>
-      <go wp="p2"/>
-      <deroute block="stay_p1"/>
-    </block>
-    <block name="line_p1_p2">
-      <go from="p1" hmode="route" wp="p2"/>
-      <stay wp="p2" until="stage_time>10"/>
-      <go from="p2" hmode="route" wp="p1"/>
-      <deroute block="stay_p1"/>
     </block>
     <!-- Custom-made blocks for testing heading flight -->
 	<block name="Obstacle Avoidance 1">
-      <exception cond="! InsideFlight_Area(GetPosX(), GetPosY())" deroute="OA Turn Around"/>
-      <go from="FROM" wp="TO" hmode="route"/>
+	  <while cond="InsideFlight_Area(GetPosX(), GetPosY())">
+      	<!--exception cond="!" deroute="Standby"/-->
+      	<go wp="TO" hmode="route"/> 
+		<while cond="5>stage_time"/>
+      	<!--deroute block="OA Turn Around"/-->
+	  </while>	
     </block>
     <block name="OA Turn Around">
 	  <call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+2.7))"/>
@@ -92,13 +86,6 @@
 		<go from="STDBY" wp="TO" hmode="route" until="stage_time>1"/>
 		<deroute block="Obstacle Avoidance 1"/>
 	</block>
-    <!---->
-    <block name="route">
-      <go from="p1" hmode="route" wp="p3"/>
-      <go from="p3" hmode="route" wp="p4"/>
-      <go from="p4" hmode="route" wp="p1"/>
-      <deroute block="stay_p1"/>
-    </block>
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call fun="NavSetWaypointHere(WP_TD)"/>
     </block>

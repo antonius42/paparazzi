@@ -129,16 +129,16 @@ void *computervision_thread_main(void *args)
     
     // Test navigation command
     count++;
-    if (count==100) {
-        obstacle_avoidance_update_waypoint(-0.5, 1);
+    /*if (count==100) {
+        obstacle_avoidance_update_waypoint(-0.2, 0.1);
     }
     if (count==200) {
-		obstacle_avoidance_update_waypoint(0.5, 1);
-	}
+		obstacle_avoidance_update_waypoint(0.2, 0.1);
+	}*/
      
-	/*if (count % 20 == 0) {
-		obstacle_avoidance_update_waypoint(0, 1);
-    }*/
+	if (count % 60 == 0) {
+		obstacle_avoidance_update_waypoint(0, 5);
+    }
     
 
     if (count==max_count) {
