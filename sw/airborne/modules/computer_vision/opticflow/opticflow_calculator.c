@@ -60,15 +60,16 @@ void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h)
 {
 
   /* Create the image buffers */
-  image_create(&opticflow->img_gray, w, h, IMAGE_GRAYSCALE);
+  image_create(&opticflow->img_gray, w, h, IMAGE_GRAYSCALE);		// Tobias: (output image struct, input width, input height, input image type)
   image_create(&opticflow->prev_img_gray, w, h, IMAGE_GRAYSCALE);
 
   /* Set the previous values */
   opticflow->got_first_img = FALSE;
   opticflow->prev_phi = 0.0;
-  opticflow->prev_psi = 0.0;		// Tobias: added prev_psi to opticlow
+  opticflow->prev_psi = 0.0;		// Tobias: added prev_psi for derotation of frontal camera opticflow
   opticflow->prev_theta = 0.0;
 }
+
 
 /**
  * Run the optical flow on a new image frame
@@ -84,11 +85,11 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
   memcpy(&opticflow->prev_timestamp, &img->ts, sizeof(struct timeval));
 
   // Convert image to grayscale
-  image_to_grayscale(img, &opticflow->img_gray);
+  image_to_grayscale(img, &opticflow->img_gray);	// Tobias: (input image struct (img->buf), output image struct (img->buf) )
 
   // Copy to previous image if not set
   if (!opticflow->got_first_img) {
-    image_copy(&opticflow->img_gray, &opticflow->prev_img_gray);
+    image_copy(&opticflow->img_gray, &opticflow->prev_img_gray);	// Tobias: (input image struct, output image struct )
     opticflow->got_first_img = TRUE;
   }
 
@@ -106,10 +107,6 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
     threshold--;
   else if(result->corner_cnt > 50 && threshold < 60)
     threshold++;
-/*
-#if OPTICFLOW_DEBUG && OPTICFLOW_SHOW_CORNERS
-  image_show_points(img, corners, result->corner_cnt);
-#endif	*/
 
   // Check if we found some corners to track
   if(result->corner_cnt < 1) {
@@ -141,11 +138,41 @@ printf("	\n");
 printf("plot(x,y,'*')	\n");
 // ***************** End Display results ***************** 
 
-/*
-#if OPTICFLOW_DEBUG && OPTICFLOW_SHOW_FLOW
-  image_show_flow(img, vectors, result->tracked_cnt, SUBPIXEL_FACTOR);
-#endif	*/
 
+
+// ***************** Start sorting corners & optic flow vectos ***************** 
+// Note: Use Insertion Sort algorithm
+/*  uint16_t j;
+  for (uint16_t i = 1; i < result->tracked_cnt; ++i)
+  {
+    struct flow_t idx_vectors;
+    struct point_t idx_corners;
+  
+    idx_vectors = vectors[i];
+    idx_corners = corners[i];
+  
+    for (j = i; j > 0 && vectors[j-1].flow_x > idx_vectors.flow_x; j--)
+    {
+      vectors[j] = vectors[j-1];
+      corners[j] = corners[j-1];
+    }
+
+    vectors[j] = idx_vectors;
+    corners[j] = idx_corners;
+  } */
+// ***************** End sorting corners & optic flow vectos ***************** 
+
+
+
+// ***************** Start Remove faultive optic flow & corresponding corner ***************** 
+// example: remove all optic flow > median optic flow
+// example: remove all optic flow > mean optic flow
+// example: remove all optic flow > K * mean optic flow
+// ***************** End Remove faultive optic flow & corresponding corner ***************** 
+
+
+
+// ***************** Start REMOVE THIS ENTIRE SECTION ***************** 
   // Get the median flow
   qsort(vectors, result->tracked_cnt, sizeof(struct flow_t), cmp_flow);
   if(result->tracked_cnt == 0) {
@@ -167,19 +194,29 @@ printf("plot(x,y,'*')	\n");
     result->flow_x = vectors[result->tracked_cnt/2].flow_x;
     result->flow_y = vectors[result->tracked_cnt/2].flow_y;
   }
+// ***************** End REMOVE THIS ENTIRE SECTION ***************** 
 
-  // Flow Derotation
-  float diff_flow_x = (state->phi - opticflow->prev_phi) * img->w / FOV_W;
-  float diff_flow_y = (state->theta - opticflow->prev_theta) * img->h / FOV_H;
+
+
+// ***************** Start derotation of optic flow ***************** 
+
+  float diff_flow_x = (state->phi - opticflow->prev_phi) * img->w / FOV_W;	// Tobias: Check if correct...
+  float diff_flow_y = (state->psi - opticflow->prev_psi) * img->w / FOV_W;	// Tobias: Check if correct...
   result->flow_der_x = result->flow_x - diff_flow_x * SUBPIXEL_FACTOR;
   result->flow_der_y = result->flow_y - diff_flow_y * SUBPIXEL_FACTOR;
   opticflow->prev_phi = state->phi;
   opticflow->prev_psi = state->psi;		// Tobias: added previous psi = current psi
   opticflow->prev_theta = state->theta;
 
+// ***************** End derotation of optic flow ***************** 
+
+
+// ***************** Start REMOVE THIS ENTIRE SECTION ***************** 
   // Velocity calculation
   result->vel_x = -result->flow_der_x * result->fps / SUBPIXEL_FACTOR * img->w / Fx_ARdrone;
   result->vel_y =  result->flow_der_y * result->fps / SUBPIXEL_FACTOR * img->h / Fy_ARdrone;
+// ***************** End REMOVE THIS ENTIRE SECTION ***************** 
+
 
   // *************************************************************************************
   // Next Loop Preparation
@@ -188,6 +225,8 @@ printf("plot(x,y,'*')	\n");
   free(vectors);
   image_copy(&opticflow->img_gray, &opticflow->prev_img_gray);
 }
+
+
 
 /**
  * Calculate the difference from start till finish

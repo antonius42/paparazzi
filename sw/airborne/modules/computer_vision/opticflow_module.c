@@ -43,6 +43,9 @@
 #endif
 PRINT_CONFIG_VAR(OPTICFLOW_AGL_ID);
 
+// Define the downscale factor for the frontal camera
+#define img_downscale_factor 4
+
 /* The main opticflow variables */
 static struct opticflow_t opticflow;                //< Opticflow calculations
 static struct opticflow_result_t opticflow_result;  //< The opticflow result		//defined in inter_thread_data.h
@@ -73,14 +76,15 @@ void opticflow_module_init(void)
   opticflow_state.agl = 0;
 
   // Initialize the opticflow calculation
-//  opticflow_calc_init(&opticflow, 320, 240);
-    opticflow_calc_init(&opticflow, 1280, 720);
+//  opticflow_calc_init(&opticflow, 320, 240);		// Tobias: Use this for the downward camera
+  opticflow_calc_init(&opticflow, 1280, 720);		// Tobias: Use this for the frontal camera
+//  opticflow_calc_init(&opticflow, 1280/img_downscale_factor, 720/img_downscale_factor);	// Tobias: Use this for frontal camera scaling.
   opticflow_got_result = FALSE;
 
   /* Try to initialize the video device */
   //v4l2_init_subdev("/dev/v4l-subdev0", 0, 1, V4L2_MBUS_FMT_UYVY8_2X8, 320, 240);
-//  opticflow_dev = v4l2_init("/dev/video2", 320, 240, 60); //TODO: Fix defines          // Tobias replace video2 with video1
-  opticflow_dev = v4l2_init("/dev/video1", 1280, 720, 60); //TODO: Fix defines          // Tobias replace video2 with video1
+//  opticflow_dev = v4l2_init("/dev/video2", 320, 240, 60); //TODO: Fix defines          // Tobias: Use this for downwards camera
+  opticflow_dev = v4l2_init("/dev/video1", 1280, 720, 60); //TODO: Fix defines		// Tobias: Use this for frontal camera
   
   if (opticflow_dev == NULL) {
     printf("[opticflow_module] Could not initialize the video device\n");
@@ -149,19 +153,25 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
     return 0;
   }
 
-#ifdef OPTICFLOW_DEBUG
-  // Create a new JPEG image
-  struct image_t img_jpeg;
-  image_create(&img_jpeg, opticflow_dev->w, opticflow_dev->h, IMAGE_JPEG);
-#endif
-
   /* Main loop of the optical flow calculation */
   while(TRUE) {
     // Try to fetch an image
     struct image_t img;
     v4l2_image_get(opticflow_dev, &img);
-    
-// Downscale the Image here!!!
+
+// ***************** Start downscale the Image *****************
+// Note: When enabling this downscaling, see opticflow_calc_init(&opticflow, 1280, 720), line 82. must be 1280/4, 720/4
+
+//    struct image_t img_orig;		// Tobias: Declare img_orig
+//    v4l2_image_get(opticflow_dev, &img_orig);		// Tobias: Get the image from the camera device and store in img_org (1280,720)
+
+//    struct image_t img;	// Tobias: Declare img
+//    image_yuv422_downsample(&img_orig, &img, 4);		// Tobias: Downsample img_orig with factor 4, store result in img (320,180). see scaling line 47
+
+
+//   free(img_orig)	// Tobias: We need to clear this image!!! somehow...
+
+// ***************** End downscale the Image *****************
 
     // Copy the state
     pthread_mutex_lock(&opticflow_mutex);
@@ -178,27 +188,14 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
     memcpy(&opticflow_result, &temp_result, sizeof(struct opticflow_result_t));
     opticflow_got_result = TRUE;
     pthread_mutex_unlock(&opticflow_mutex);
-/*
-#ifdef OPTICFLOW_DEBUG
-    jpeg_encode_image(&img, &img_jpeg, 70, FALSE);
-    rtp_frame_send(
-      &VIEWVIDEO_DEV,           // UDP device
-      &img_jpeg,
-      0,                        // Format 422
-      70, // Jpeg-Quality
-      0,                        // DRI Header
-      0                         // 90kHz time increment
-    );
-#endif
-*/
+
     // Free the image
     v4l2_image_free(opticflow_dev, &img);
   }
-/*
-#ifdef OPTICFLOW_DEBUG
-  image_free(&img_jpeg);
-#endif	*/
+
 }
+
+
 
 /**
  * Get the altitude above ground of the drone
