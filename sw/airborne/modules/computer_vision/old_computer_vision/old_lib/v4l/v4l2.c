@@ -46,9 +46,6 @@ static void *v4l2_capture_thread(void *data);
  * The main capturing thread
  * This thread handles the queue and dequeue of buffers, to make sure only the latest
  * image buffer is preserved for image processing.
- * @param[in] *data The Video 4 Linux 2 device pointer
- * @return 0 on succes, -1 if it isn able to fetch an image,
- * -2 on timeout of taking an image, -3 on failing buffer dequeue
  */
 static void *v4l2_capture_thread(void *data)
 {
@@ -91,9 +88,6 @@ static void *v4l2_capture_thread(void *data)
     }
     assert(buf.index < dev->buffers_cnt);
 
-    // Copy the timestamp
-    memcpy(&dev->buffers[buf.index].timestamp, &buf.timestamp, sizeof(struct timeval));
-
     // Update the dequeued id
     // We need lock because between setting prev_idx and updating the deq_idx the deq_idx could change
     pthread_mutex_lock(&dev->mutex);
@@ -119,13 +113,12 @@ static void *v4l2_capture_thread(void *data)
 
 /**
  * Initialize a V4L2 subdevice.
- * @param[in] *subdev_name The subdevice name (like /dev/v4l-subdev0)
- * @param[in] pad,which The way the subdevice should comminicate and be
- * connected to the real device.
- * @param[in] code The encoding the subdevice uses (like V4L2_MBUS_FMT_UYVY8_2X8,
- * see the V4L2 manual for available encodings)
- * @param[in] width,height The width and height of the images
- * @return Whether the subdevice was successfully initialized
+ * The subdevice name should be something like '/dev/v4l-subdev0'
+ * The pad and which indicate the way the subdevice should communicate
+ * with the real device. Which pad it should take.
+ * Code should be something like V4L2_MBUS_FMT_UYVY8_2X8. See the V4l2
+ * manual for available codes.
+ * Width and height are the amount of pixels this subdevice must cover.
  */
 bool_t v4l2_init_subdev(char *subdev_name, uint8_t pad, uint8_t which, uint16_t code, uint16_t width, uint16_t height)
 {
@@ -167,12 +160,11 @@ bool_t v4l2_init_subdev(char *subdev_name, uint8_t pad, uint8_t which, uint16_t 
 }
 
 /**
- * Initialize a V4L2(Video for Linux 2) device.
- * Note that the device must be closed with v4l2_close(dev) at the end.
- * @param[in] device_name The video device name (like /dev/video1)
- * @param[in] width,height The width and height of the images
- * @param[in] buffer_cnt The amount of buffers used for mapping
- * @return The newly create V4L2 device
+ * Initialize a V4L2(Video for Linux 2) device
+ * The device name should be something like "/dev/video1"
+ * The subdevice name can be empty if there is no subdevice
+ * The buffer_cnt are the amount of buffers used in memory mapping
+ * Note that you need to close this device at the end of you program!
  */
 struct v4l2_device *v4l2_init(char *device_name, uint16_t width, uint16_t height, uint8_t buffers_cnt) {
   uint8_t i;
@@ -259,6 +251,7 @@ struct v4l2_device *v4l2_init(char *device_name, uint16_t width, uint16_t height
     }
 
     //  Map the buffer
+    buffers[i].idx = i;
     buffers[i].length = buf.length;
     buffers[i].buf = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, buf.m.offset);
     if (MAP_FAILED == buffers[i].buf) {
@@ -285,11 +278,9 @@ struct v4l2_device *v4l2_init(char *device_name, uint16_t width, uint16_t height
  * Get the latest image buffer and lock it (Thread safe, BLOCKING)
  * This functions blocks until image access is granted. This should not take that long, because
  * it is only locked while enqueueing an image.
- * Make sure you free the image after processing with v4l2_image_free()!
- * @param[in] *dev The V4L2 video device we want to get an image from
- * @param[out] *img The image that we got from the video device
+ * Make sure you free the image after processing!
  */
-void v4l2_image_get(struct v4l2_device *dev, struct image_t *img) {
+struct v4l2_img_buf *v4l2_image_get(struct v4l2_device *dev) {
   uint16_t img_idx = V4L2_IMG_NONE;
 
   // Continu to wait for an image
@@ -308,25 +299,16 @@ void v4l2_image_get(struct v4l2_device *dev, struct image_t *img) {
     }
   }
 
-  // Set the image
-  img->type = IMAGE_YUV422;
-  img->w = dev->w;
-  img->h = dev->h;
-  img->buf_idx = img_idx;
-  img->buf_size = dev->buffers[img_idx].length;
-  img->buf = dev->buffers[img_idx].buf;
-  memcpy(&img->ts, &dev->buffers[img_idx].timestamp, sizeof(struct timeval));
+  // Rreturn the image
+  return &dev->buffers[img_idx];
 }
 
 /**
  * Get the latest image and lock it (Thread safe, NON BLOCKING)
  * This function returns NULL if it can't get access to the current image.
- * Make sure you free the image after processing with v4l2_image_free())!
- * @param[in] *dev The V4L2 video device we want to get an image from
- * @param[out] *img The image that we got from the video device
- * @return Whether we got an image or not
+ * Make sure you free the image after processing!
  */
-bool_t v4l2_image_get_nonblock(struct v4l2_device *dev, struct image_t *img) {
+struct v4l2_img_buf *v4l2_image_get_nonblock(struct v4l2_device *dev) {
   uint16_t img_idx = V4L2_IMG_NONE;
 
   // Try to get the current image
@@ -339,27 +321,17 @@ bool_t v4l2_image_get_nonblock(struct v4l2_device *dev, struct image_t *img) {
 
   // Check if we really got an image
   if (img_idx == V4L2_IMG_NONE) {
-    return FALSE;
+    return NULL;
   } else {
-     // Set the image
-    img->type = IMAGE_YUV422;
-    img->w = dev->w;
-    img->h = dev->h;
-    img->buf_idx = img_idx;
-    img->buf_size = dev->buffers[img_idx].length;
-    img->buf = dev->buffers[img_idx].buf;
-    memcpy(&img->ts, &dev->buffers[img_idx].timestamp, sizeof(struct timeval));
-    return TRUE;
+    return &dev->buffers[img_idx];
   }
 }
 
 /**
  * Free the image and enqueue the buffer (Thread safe)
  * This must be done after processing the image, because else all buffers are locked
- * @param[in] *dev The video for linux device which the image is from
- * @param[in] *img The image to free
  */
-void v4l2_image_free(struct v4l2_device *dev, struct image_t *img)
+void v4l2_image_free(struct v4l2_device *dev, struct v4l2_img_buf *img_buf)
 {
   struct v4l2_buffer buf;
 
@@ -367,18 +339,16 @@ void v4l2_image_free(struct v4l2_device *dev, struct image_t *img)
   CLEAR(buf);
   buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   buf.memory = V4L2_MEMORY_MMAP;
-  buf.index = img->buf_idx;
+  buf.index = img_buf->idx;
   if (ioctl(dev->fd, VIDIOC_QBUF, &buf) < 0) {
-    printf("[v4l2] Could not enqueue %d for %s\n", img->buf_idx, dev->name);
+    printf("[v4l2] Could not enqueue %d for %s\n", img_buf->idx, dev->name);
   }
 }
 
 /**
  * Start capturing images in streaming mode (Thread safe)
- * @param[in] *dev The video for linux device to start capturing from
- * @return It resturns TRUE if it successfully started capture,
- * but keep in mind that if it is already started it will
- * return FALSE.
+ * Returns true when successfully started capturing. Not that it also returns
+ * FALSE when it already is in capturing mode.
  */
 bool_t v4l2_start_capture(struct v4l2_device *dev)
 {
@@ -434,10 +404,9 @@ bool_t v4l2_start_capture(struct v4l2_device *dev)
 
 /**
  * Stop capturing of the image stream (Thread safe)
- * This function is blocking until capturing thread is closed.
- * @param[in] *dev The video for linux device to stop capturing
- * @return TRUE if it successfully stopped capturing. Note that it also returns FALSE
- * when the capturing is already stopped.
+ * Returns TRUE if it successfully stopped capturing. Note that it also returns FALSE
+ * when the capturing is already stopped. This function is blocking until capturing
+ * thread is closed.
  */
 bool_t v4l2_stop_capture(struct v4l2_device *dev)
 {
@@ -472,7 +441,6 @@ bool_t v4l2_stop_capture(struct v4l2_device *dev)
  * Close the V4L2 device (Thread safe)
  * This needs to be preformed to clean up all the buffers and close the device.
  * Note that this also stops the capturing if it is still capturing.
- * @param[in] *dev The video for linux device to close(cleanup)
  */
 void v4l2_close(struct v4l2_device *dev)
 {

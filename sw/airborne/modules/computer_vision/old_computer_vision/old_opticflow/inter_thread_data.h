@@ -29,27 +29,33 @@
 #ifndef _INTER_THREAD_DATA_H
 #define _INTER_THREAD_DATA_H
 
-/* The result calculated from the opticflow */
-struct opticflow_result_t {
-  float fps;              //< Frames per second of the optical flow calculation
-  uint16_t corner_cnt;    //< The amount of coners found by FAST9
-  uint16_t tracked_cnt;   //< The amount of tracked corners
+/// Data from thread to module
+struct CVresults {
+  int cnt;          // Number of processed frames
 
-  int16_t flow_x;         //< Flow in x direction from the camera (in subpixels)
-  int16_t flow_y;         //< Flow in y direction from the camera (in subpixels)
-  int16_t flow_der_x;     //< The derotated flow calculation in the x direction (in subpixels)
-  int16_t flow_der_y;     //< The derotated flow calculation in the y direction (in subpixels)
+//REMOVED_MAV  float Velx;       // Velocity as measured by camera
+//REMOVED_MAV   float Vely;
+  int flow_count;
 
-  float vel_x;            //< The velocity in the x direction
-  float vel_y;            //< The velocity in the y direction
+//REMOVED_MAV   float cam_h;      // Debug parameters
+  int count;
+//REMOVED_MAV   float OFx, OFy;//REMOVED_MAV  , dx_sum, dy_sum;
+  float diff_roll;
+  float diff_yaw; // Changed pitch to yaw
+  float FPS;
+  float OFtotal; //Total optic flow, has been added. 
+  float OFtotalL; // Total optic flow on the left has been added.
+  float OFtotalR; // Total optic flow on the right has been added.
+  float OFFlessZone; // Size of the featureless zone has been added.
+  float OFFlessZonePos; // Center of the featureless zone has been added.
 };
 
-/* The state of the drone when it took an image */
-struct opticflow_state_t {
-  float phi;      //< roll [rad]
-  float psi;	  //< yaw [rad]		// Tobias: added psi to the state
-  float theta;    //< pitch [rad]
-  float agl;      //< height above ground [m]
+/// Data from module to thread
+struct PPRZinfo {
+  int cnt;        // IMU msg counter
+  float phi;      // roll [rad]
+  float psi;    // yaw [rad]   Changed pitch to yaw.
+  float agl;      // height above ground [m]
 };
 
 #endif

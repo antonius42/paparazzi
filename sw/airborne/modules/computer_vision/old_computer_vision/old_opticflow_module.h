@@ -28,9 +28,7 @@
 #ifndef OPTICFLOW_MODULE_H
 #define OPTICFLOW_MODULE_H
 
-// Include opticflow calculator and stabilization loops
-#include "opticflow/opticflow_calculator.h"
-//#include "opticflow/stabilization_opticflow.h"
+#include "std.h"
 
 // Module functions
 extern void opticflow_module_init(void);
