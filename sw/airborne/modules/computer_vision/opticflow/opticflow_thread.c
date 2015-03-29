@@ -57,7 +57,7 @@
 static volatile enum{RUN,EXIT} computer_vision_thread_command = RUN;  /** request to close: set to 1 */
 
 int count = 0;
-int max_count = 30;
+int max_count = 600;
 
 void computervision_thread_request_exit(void) {
   computer_vision_thread_command = EXIT;
@@ -129,14 +129,22 @@ void *computervision_thread_main(void *args)
     
     // Test navigation command
     count++;
-    if (count==60) {
-        obstacle_avoidance_update_waypoint(-0.5, 1);
+    /*if (count==100) {
+        obstacle_avoidance_update_waypoint(-0.2, 0.1);
     }
-    if (count==120) {
-		obstacle_avoidance_update_waypoint(0.5, 1);
-		count = 0;
-	}
+    if (count==200) {
+		obstacle_avoidance_update_waypoint(0.2, 0.1);
+	}*/
+     
+	if (count % 60 == 0) {
+		obstacle_avoidance_update_waypoint(0, 5);
+    }
     
+
+    if (count==max_count) {
+		//obstacle_avoidance_stop();
+		count = 0;
+    }
 
     /* Send results to main */
     vision_results.cnt++;

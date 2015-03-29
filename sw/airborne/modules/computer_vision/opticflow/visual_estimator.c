@@ -186,12 +186,12 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   free(pnts_fast);
 
   if (disp_counter == 9){
-  printf("Number of features from Fast = %i \n",results->count);
+  //printf("Number of features from Fast = %i \n",results->count);
 
     for (int i = 0; i < results->count; i++){
-    printf("x(%i)=%i,y(%i)=%i,",i+1,x[i],i+1,y[i]);
+    //printf("x(%i)=%i,y(%i)=%i,",i+1,x[i],i+1,y[i]);
     }
-    printf(" \n");
+    //printf(" \n");
   }
 
   // Remove neighboring corners
@@ -226,7 +226,7 @@ void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CV
   } 
 
   if (disp_counter == 9){
-  printf("Number of features after feature removal = %i \n",count_fil);
+  //printf("Number of features after feature removal = %i \n",count_fil);
   }
 
   if (count_fil > max_count) { count_fil = max_count; }
@@ -323,8 +323,8 @@ for (int i = 0; i < results->flow_count; i++){
 
   disp_counter++;
   if (disp_counter == 10){
-  printf("Total OF %f \n", results->OFtotal);
-  printf("Number of features %i \n",results->flow_count);
+ // printf("Total OF %f \n", results->OFtotal);
+ // printf("Number of features %i \n",results->flow_count);
   disp_counter = 0;
   }
 // ADD total, total left, total right...
