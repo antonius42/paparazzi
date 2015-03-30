@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include "state.h"
 
 #include <math.h>
 
@@ -79,7 +80,7 @@ void opticflow_calc_init(struct opticflow_t *opticflow, uint16_t w, uint16_t h)
  * @param[in] *img The image frame to calculate the optical flow from
  * @param[out] *result The optical flow result
  */
-void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_t *state, struct image_t *img, struct opticflow_result_t *result)
+void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_t *att_state, struct image_t *img, struct opticflow_result_t *result)
 {
   // Update FPS for information
   result->fps = 1 / (timeval_diff(&opticflow->prev_timestamp, &img->ts) / 1000.);
@@ -189,30 +190,26 @@ printf("	\n"); */
 // example: remove all optic flow > K * mean optic flow
 // ***************** End Remove faultive optic flow & corresponding corner ***************** 
 
-
 // ***************** Start derotation of optic flow ***************** 
-/*  for (int i = 0; i < result->tracked_cnt; i++)
+  float diff_flow_x_psi = (att_state->psi - opticflow->prev_psi) * img->w / FOV_W;	// Tobias: only for yaw corrected
+for (int i = 0; i < result->tracked_cnt; i++)
   {
-   
-  } */
-// ***************** End derotation of optic flow ***************** 
-  
-// ***************** Start derotation of optic flow ***************** 
+   vectors[i].flow_x = vectors[i].flow_x - diff_flow_x_psi * SUBPIXEL_FACTOR;
+   vectors[i].flow_y = 0;
+  }
 
-  float diff_flow_x_psi = (state->psi - opticflow->prev_psi) * img->w / FOV_W;	// Tobias: only for yaw corrected
-//  float diff_flow_x_phi = (state->phi - opticflow->prev_phi) * img->h / FOV_H;	// Tobias: Need corners for this
-  result->flow_der_x = result->flow_x - diff_flow_x_psi * SUBPIXEL_FACTOR;
-  opticflow->prev_phi = state->phi;
-  opticflow->prev_psi = state->psi;		// Tobias: added previous psi = current psi
-  opticflow->prev_theta = state->theta;
+  opticflow->prev_phi = att_state->phi;
+  opticflow->prev_psi = att_state->psi;		// Tobias: added previous psi = current psi
+  opticflow->prev_theta = att_state->theta;
 
 // ***************** End derotation of optic flow ***************** 
 
 
 // ***************** Start Display results ***************** 
-//printf("phi = %0.1f, dphi = %0.1f	\n",state->phi,state->phi - opticflow->prev_phi);
-//printf("dx = %i, idx = %0.1f	\n",result->flow_x,diff_flow_x_psi);
-//printf("Derotated dx = %i	\n",result->flow_der_x);
+printf("phi_f = %0.3f	\n",stateGetNedToBodyEulers_f()->phi);
+printf("phi = %0.3f, dphi = %0.3f	\n",att_state->phi,att_state->phi - opticflow->prev_phi);
+printf("dx = %i, yaw_induced_dx = %0.3f	\n",result->flow_x,diff_flow_x_psi);
+printf("Derotated dx = %i	\n",result->flow_der_x);
 // ***************** End Display results ***************** 
 
 
@@ -220,25 +217,25 @@ printf("	\n"); */
 // ***************** Start sorting Left, Right and center position of optic flow vectos ***************** 
 result->tot_of_left = 0;
 result->tot_of_right = 0;
-result->tot_of_centre = 0;
+result->tot_of = 0;
 
 for (int i = 0; i < result->tracked_cnt; i++){
     if (corners[i].x < 0.45 * img->w){
-        result->tot_of_left = result->tot_of_left + abs(vectors[i].flow_x);	// Tobias: total optic flow left
+        result->tot_of_left = result->tot_of_left - (vectors[i].flow_x/abs(corners[i].x-img->w/2)) * img->w;	// Tobias: total optic flow left
+        result->tot_of = result->tot_of + (abs(vectors[i].flow_x)/abs(corners[i].x-img->w/2)) * img->w;	// Tobias: Total optic flow
     }
     else if(corners[i].x > 0.55 * img->w){
-    	result->tot_of_right = result->tot_of_right + abs(vectors[i].flow_x);	// Tobias: total optic flow right
-    }
-    else{
-        result->tot_of_centre = result->tot_of_centre + abs(vectors[i].flow_x);	// Tobias: total optic flow centre
+    	result->tot_of_right = result->tot_of_right + (vectors[i].flow_x/abs(corners[i].x-img->w/2)) * img->w;	// Tobias: total optic flow right
+    	result->tot_of = result->tot_of + (abs(vectors[i].flow_x)/abs(corners[i].x-img->w/2)) * img->w;	// Tobias: Total optic flow
     }
 }
 // ***************** End sorting Left, Right and center position of optic flow vectos ***************** 
 
+
 // ***************** Start Display Total optic flows ***************** 
 printf("Left %i	\n",result->tot_of_left);
 printf("Right %i	\n",result->tot_of_right);
-printf("Centre %i	\n",result->tot_of_centre);
+printf("Total %i	\n",result->tot_of);
 // ***************** End Display Total optic flows ***************** 
 
   // *************************************************************************************
