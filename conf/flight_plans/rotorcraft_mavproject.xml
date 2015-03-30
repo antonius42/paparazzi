@@ -1,29 +1,30 @@
 <!DOCTYPE flight_plan SYSTEM "flight_plan.dtd">
 
-<flight_plan alt="2" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="150" name="Rotorcraft Basic (Enac)" security_height="1">
+<flight_plan alt="1.5" ground_alt="0" lat0="51.990634" lon0="4.376789" max_dist_from_home="150" name="Rotorcraft Basic (Enac)" security_height="1">
   <header>
 #include "autopilot.h"
 #include "navigation.h"
+#include "guidance/guidance_h.h"
   </header>
   <waypoints>
     <waypoint name="HOME" x="0.0" y="0.0"/>
     <waypoint name="CLIMB" x="0.0" y="5.0"/>
-    <waypoint name="STDBY" x="-2.0" y="-2.0"/>
-    <waypoint name="TD" x="5.6" y="-5.9"/>
-	<waypoint name="FROM" x="1.0" y="0.0"/>
-	<waypoint name="TO" x="1.0" y="-1.0"/>
+    <waypoint name="STDBY" x="-2.0" y="-5.0"/>
+    <waypoint name="TD" x="5.6" y="-10.9"/>
+	<waypoint name="FROM" x="5.6" y="-10.9"/>
+	<waypoint name="TO" x="5.6" y="-10.9"/>
     <waypoint lat="51.990639" lon="4.376807" name="p1"/>
     <waypoint lat="51.990624" lon="4.376767" name="p2"/>
     <waypoint lat="51.990648" lon="4.376745" name="p3"/>
     <waypoint lat="51.990663" lon="4.376784" name="p4"/>
-    <waypoint lat="51.990635" lon="4.376836" name="FA1"/>
+    <!--waypoint lat="51.990635" lon="4.376836" name="FA1"/>
     <waypoint lat="51.990606" lon="4.376760" name="FA2"/>
     <waypoint lat="51.990652" lon="4.376712" name="FA3"/>
-    <waypoint lat="51.990681" lon="4.376791" name="FA4"/>
-	<!--waypoint lat="51.990638" lon="4.376815" name="FA1"/>
-    <waypoint lat="51.990619" lon="4.376766" name="FA2"/>
-    <waypoint lat="51.990649" lon="4.376736" name="FA3"/>
-    <waypoint lat="51.990668" lon="4.376786" name="FA4"/-->
+    <waypoint lat="51.990681" lon="4.376791" name="FA4"/-->
+    <waypoint lat="51.990637" lon="4.376817" name="FA1"/>
+    <waypoint lat="51.990615" lon="4.376764" name="FA2"/>
+    <waypoint lat="51.990650" lon="4.376728" name="FA3"/>
+    <waypoint lat="51.990672" lon="4.376788" name="FA4"/>
   </waypoints>
   <sectors>
     <sector color="red" name="Flight_Area">
@@ -33,6 +34,9 @@
       <corner name="FA4"/>
     </sector>
   </sectors>
+  <exceptions>
+    <exception cond="autopilot_flight_time == 180" deroute="land here"/>
+  </exceptions>
   <blocks>
     <block name="Wait GPS">
       <call fun="NavKillThrottle()"/>
@@ -42,10 +46,10 @@
       <while cond="LessThan(NavBlockTime(), 5)"/>
       <call fun="NavSetWaypointHere(WP_HOME)"/>
       <call fun="NavSetWaypointHere(WP_CLIMB)"/>
-   <!--   <call fun="NavSetWaypointHere(WP_STDBY)"/>
-      <call fun="NavSetWaypointHere(WP_TD)"/>-->
-	 <!-- <call fun="NavSetWaypointHere(WP_FROM)"/>
-	  <call fun="NavSetWaypointHere(WP_TO)"/>-->
+      <call fun="NavSetWaypointHere(WP_STDBY)"/>
+      <call fun="NavSetWaypointHere(WP_TD)"/>
+	    <call fun="NavSetWaypointHere(WP_FROM)"/>
+	    <call fun="NavSetWaypointHere(WP_TO)"/>
       <call fun="NavSetAltitudeReferenceHere()"/>
     </block>
     <block name="Holding point">
@@ -54,52 +58,52 @@
     </block>
     <block name="Start Engine">
       <call fun="NavResurrect()"/>
-      <attitude pitch="0" roll="0" throttle="0" vmode="throttle" until="FALSE"/>
+      <attitude pitch="0" roll="0" throttle="0" vmode="throttle" until="stage_time>2"/>
     </block>
     <block name="Takeoff" strip_button="Takeoff" strip_icon="takeoff.png">
-      <exception cond="stateGetPositionEnu_f()->z > 2.0" deroute="Standby"/>
+      <exception cond="stateGetPositionEnu_f()->z > 2.0" deroute="Obstacle Avoidance"/>
       <call fun="NavSetWaypointHere(WP_CLIMB)"/>
       <stay vmode="climb" climb="0.5" wp="CLIMB"/>
     </block>
     <block name="Standby" strip_button="Standby" strip_icon="home.png">
-      <!--call fun="NavSetWaypointHere(WP_STDBY)"/-->
+      <call fun="NavSetWaypointHere(WP_STDBY)"/>
       <stay wp="STDBY"/>
     </block>
-    <!-- Custom-made blocks for testing heading flight -->
-	<block name="Obstacle Avoidance 1">
-	  <while cond="InsideFlight_Area(GetPosX(), GetPosY())">
-      	<!--exception cond="!" deroute="Standby"/-->
-      	<go wp="TO" hmode="route"/> 
-		<while cond="5>stage_time"/>
-      	<!--deroute block="OA Turn Around"/-->
-	  </while>	
+    <!-- Custom-made blocks for testing heading flight -- InsideFlight_Area(GetPosX(), GetPosY())-->
+    <block name="Obstacle Avoidance">
+      <exception cond="!InsideFlight_Area(GetPosX(), GetPosY())" deroute="OA Turn Around"/>
+      <while cond="TRUE">
+        <go from="FROM" wp="TO" hmode="route"/>
+      </while>
     </block>
-    <block name="OA Turn Around">
-	  <call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+2.7))"/>
+    <block name="OA Turn Around">   
+      <call fun="NavSetWaypointHere(WP_FROM)"/>
+	  <stay wp="FROM" until="stage_time>1" />  
+      <call fun="nav_set_heading_rad(ANGLE_FLOAT_OF_BFP(nav_heading)+2.0)"/>
+      <stay wp="FROM" until="stage_time>1" />     
       <go from="FROM" wp="TO" hmode="route" until="stage_time>2"/>
-	  <deroute block="Obstacle Avoidance 1"/>	
+	  <deroute block="Obstacle Avoidance"/>	
     </block>
-	<block name="Obstacle emergency stop">
-		<call fun="NavSetWaypointHere(WP_STDBY)"/>
-		<stay wp="STDBY" until="stage_time>1"/>
-		<call fun="nav_set_heading_rad(ANGLE_BFP_OF_REAL(nav_heading+1.4))"/>
-		<go from="STDBY" wp="TO" hmode="route" until="stage_time>1"/>
-		<deroute block="Obstacle Avoidance 1"/>
-	</block>
+	  <block name="Obstacle emergency stop">
+		  <call fun="NavSetWaypointHere(WP_FROM)"/>
+		  <call fun="nav_set_heading_rad(ANGLE_FLOAT_OF_BFP(nav_heading)+1.4)"/>
+      <stay wp="FROM" until="stage_time>2"/>
+		  <deroute block="Obstacle Avoidance"/>
+	  </block>
+    <!---->
     <block name="land here" strip_button="Land Here" strip_icon="land-right.png">
       <call fun="NavSetWaypointHere(WP_TD)"/>
-    </block>
-    <block name="land">
-      <go wp="TD"/>
+      <stay wp="TD" until="stage_time>2" />
     </block>
     <block name="flare">
       <exception cond="NavDetectGround()" deroute="Holding point"/>
       <exception cond="!nav_is_in_flight()" deroute="landed"/>
       <call fun="NavStartDetectGround()"/>
-      <stay climb="-0.8" vmode="climb" wp="TD"/>
+      <stay climb="-0.8" vmode="climb" wp="TD" until="stage_time > 4"/>
     </block>
     <block name="landed">
-      <attitude pitch="0" roll="0" throttle="0" vmode="throttle" until="FALSE"/>
+      <attitude pitch="0" roll="0" throttle="0" vmode="throttle" until="stage_time>2"/>
+      <call fun="NavKillThrottle()"/>
     </block>
   </blocks>
 </flight_plan>
