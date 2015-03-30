@@ -32,6 +32,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <math.h>
+
 // Own Header
 #include "opticflow_calculator.h"
 
@@ -48,7 +50,6 @@
 
 /* Functions only used here */
 static uint32_t timeval_diff(struct timeval *starttime, struct timeval *finishtime);
-static int cmp_flow(const void *a, const void *b);
 
 /**
  * Initialize the opticflow calculator
@@ -97,10 +98,11 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
   // Corner detection
   // *************************************************************************************
 
-  // FAST corner detection (TODO: non fixed threashold)
+  // FAST corner detection
   static uint8_t threshold = 20;
+//  threshold = 20;	// Tobias: Uncomment this to turn of adaptive threshold
   struct point_t *corners = fast9_detect(img, threshold, 10, 20, 20, &result->corner_cnt);
-
+// printf("Fast corners Corners = %i  threshold = %i	\n",result->corner_cnt,threshold);
 
   // Adaptive threshold
   if(result->corner_cnt < 40 && threshold > 5)
@@ -114,12 +116,13 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
     image_copy(&opticflow->img_gray, &opticflow->prev_img_gray);
     return;
   }
+  
 
   // *************************************************************************************
   // Corner Tracking
   // *************************************************************************************
 
-#define MAX_TRACK_CORNERS 25
+#define MAX_TRACK_CORNERS 100
 #define HALF_WINDOW_SIZE 5
 #define SUBPIXEL_FACTOR 10
 #define MAX_ITERATIONS 10
@@ -130,28 +133,43 @@ void opticflow_calc_frame(struct opticflow_t *opticflow, struct opticflow_state_
     HALF_WINDOW_SIZE, SUBPIXEL_FACTOR, MAX_ITERATIONS, THRESHOLD_VEC, MAX_TRACK_CORNERS);
 
 
-// ***************** Start Display results ***************** 
+// ***************** Start Display results x,y,dx,dy for MATLAB *****************
+/*
+printf("A = [");
 for (int i = 0; i < result->corner_cnt;i++){
-  printf("x(%i)=%i,y(%i)=%i,dx(%i)=%i,dy(%i)=%i,",i+1,corners[i].x,i+1,corners[i].y,i+1,vectors[i].flow_x,i+1,vectors[i].flow_y);
+printf("%i, %i, %i, %i;",corners[i].x,corners[i].y,vectors[i].flow_x,vectors[i].flow_y);
 }
-printf("	\n");
-printf("plot(x,y,'*')	\n");
-// ***************** End Display results ***************** 
+printf("]	\n");	// replace ;] with ]
+printf("x = A(:,1);y= A(:,2);dx = A(:,3);dy = A(:,4);	\n");
+printf("figure(1);	\n");
+printf("quiver(x,y,dx,dy);	\n");
+printf("figure(2);	\n");
+printf("plot(x,y,'*');	\n");
+printf("pause;	\n");  */
+// ***************** End Display results x,y,dx,dy for MATLAB *****************
 
+
+// ***************** Start Display optic flow results ***************** 
+/*
+for (int i = 0; i < result->corner_cnt;i++){
+printf("dx=%i,dy=%i,",vectors[i].flow_x,vectors[i].flow_y);
+}
+printf("	\n"); */
+// ***************** End Display optic flow results ***************** 
 
 
 // ***************** Start sorting corners & optic flow vectos ***************** 
-// Note: Use Insertion Sort algorithm
-/*  uint16_t j;
+// Note: Use Insertion Sort algorithm, 
+  uint16_t j;
   for (uint16_t i = 1; i < result->tracked_cnt; ++i)
   {
-    struct flow_t idx_vectors;
-    struct point_t idx_corners;
+    struct flow_t idx_vectors;		// Tobias: Optic flow vectors flow_x,flow_y
+    struct point_t idx_corners;		// Tobias: Corners x,y
   
-    idx_vectors = vectors[i];
+    idx_vectors = vectors[i];		// Tobias: Temporary struct
     idx_corners = corners[i];
   
-    for (j = i; j > 0 && vectors[j-1].flow_x > idx_vectors.flow_x; j--)
+    for (j = i; j > 0 && corners[j-1].x > idx_corners.x; j--)	// Tobias: Sort based on x coordinate of the corners
     {
       vectors[j] = vectors[j-1];
       corners[j] = corners[j-1];
@@ -159,51 +177,31 @@ printf("plot(x,y,'*')	\n");
 
     vectors[j] = idx_vectors;
     corners[j] = idx_corners;
-  } */
+  } 
 // ***************** End sorting corners & optic flow vectos ***************** 
 
 
 
 // ***************** Start Remove faultive optic flow & corresponding corner ***************** 
+
 // example: remove all optic flow > median optic flow
 // example: remove all optic flow > mean optic flow
 // example: remove all optic flow > K * mean optic flow
 // ***************** End Remove faultive optic flow & corresponding corner ***************** 
 
 
-
-// ***************** Start REMOVE THIS ENTIRE SECTION ***************** 
-  // Get the median flow
-  qsort(vectors, result->tracked_cnt, sizeof(struct flow_t), cmp_flow);
-  if(result->tracked_cnt == 0) {
-    // We got no flow
-    result->flow_x = 0;
-    result->flow_y = 0;
-  } else if(result->tracked_cnt > 3) {
-    // Take the average of the 3 median points
-    result->flow_x = vectors[result->tracked_cnt/2 -1].flow_x;
-    result->flow_y = vectors[result->tracked_cnt/2 -1].flow_y;
-    result->flow_x += vectors[result->tracked_cnt/2].flow_x;
-    result->flow_y += vectors[result->tracked_cnt/2].flow_y;
-    result->flow_x += vectors[result->tracked_cnt/2 +1].flow_x;
-    result->flow_y += vectors[result->tracked_cnt/2 +1].flow_y;
-    result->flow_x /= 3;
-    result->flow_y /= 3;
-  } else {
-    // Take the median point
-    result->flow_x = vectors[result->tracked_cnt/2].flow_x;
-    result->flow_y = vectors[result->tracked_cnt/2].flow_y;
-  }
-// ***************** End REMOVE THIS ENTIRE SECTION ***************** 
-
-
-
+// ***************** Start derotation of optic flow ***************** 
+/*  for (int i = 0; i < result->tracked_cnt; i++)
+  {
+   
+  } */
+// ***************** End derotation of optic flow ***************** 
+  
 // ***************** Start derotation of optic flow ***************** 
 
-  float diff_flow_x = (state->phi - opticflow->prev_phi) * img->w / FOV_W;	// Tobias: Check if correct...
-  float diff_flow_y = (state->psi - opticflow->prev_psi) * img->w / FOV_W;	// Tobias: Check if correct...
-  result->flow_der_x = result->flow_x - diff_flow_x * SUBPIXEL_FACTOR;
-  result->flow_der_y = result->flow_y - diff_flow_y * SUBPIXEL_FACTOR;
+  float diff_flow_x_psi = (state->psi - opticflow->prev_psi) * img->w / FOV_W;	// Tobias: only for yaw corrected
+//  float diff_flow_x_phi = (state->phi - opticflow->prev_phi) * img->h / FOV_H;	// Tobias: Need corners for this
+  result->flow_der_x = result->flow_x - diff_flow_x_psi * SUBPIXEL_FACTOR;
   opticflow->prev_phi = state->phi;
   opticflow->prev_psi = state->psi;		// Tobias: added previous psi = current psi
   opticflow->prev_theta = state->theta;
@@ -211,12 +209,37 @@ printf("plot(x,y,'*')	\n");
 // ***************** End derotation of optic flow ***************** 
 
 
-// ***************** Start REMOVE THIS ENTIRE SECTION ***************** 
-  // Velocity calculation
-  result->vel_x = -result->flow_der_x * result->fps / SUBPIXEL_FACTOR * img->w / Fx_ARdrone;
-  result->vel_y =  result->flow_der_y * result->fps / SUBPIXEL_FACTOR * img->h / Fy_ARdrone;
-// ***************** End REMOVE THIS ENTIRE SECTION ***************** 
+// ***************** Start Display results ***************** 
+//printf("phi = %0.1f, dphi = %0.1f	\n",state->phi,state->phi - opticflow->prev_phi);
+//printf("dx = %i, idx = %0.1f	\n",result->flow_x,diff_flow_x_psi);
+//printf("Derotated dx = %i	\n",result->flow_der_x);
+// ***************** End Display results ***************** 
 
+
+
+// ***************** Start sorting Left, Right and center position of optic flow vectos ***************** 
+result->tot_of_left = 0;
+result->tot_of_right = 0;
+result->tot_of_centre = 0;
+
+for (int i = 0; i < result->tracked_cnt; i++){
+    if (corners[i].x < 0.45 * img->w){
+        result->tot_of_left = result->tot_of_left + abs(vectors[i].flow_x);	// Tobias: total optic flow left
+    }
+    else if(corners[i].x > 0.55 * img->w){
+    	result->tot_of_right = result->tot_of_right + abs(vectors[i].flow_x);	// Tobias: total optic flow right
+    }
+    else{
+        result->tot_of_centre = result->tot_of_centre + abs(vectors[i].flow_x);	// Tobias: total optic flow centre
+    }
+}
+// ***************** End sorting Left, Right and center position of optic flow vectos ***************** 
+
+// ***************** Start Display Total optic flows ***************** 
+printf("Left %i	\n",result->tot_of_left);
+printf("Right %i	\n",result->tot_of_right);
+printf("Centre %i	\n",result->tot_of_centre);
+// ***************** End Display Total optic flows ***************** 
 
   // *************************************************************************************
   // Next Loop Preparation
@@ -242,16 +265,4 @@ static uint32_t timeval_diff(struct timeval *starttime, struct timeval *finishti
   return msec;
 }
 
-/**
- * Compare two flow vectors based on flow distance
- * Used for sorting.
- * @param[in] *a The first flow vector (should be vect flow_t)
- * @param[in] *b The second flow vector (should be vect flow_t)
- * @return Negative if b has more flow than a, 0 if the same and positive if a has more flow than b
- */
-static int cmp_flow(const void *a, const void *b)
-{
-  const struct flow_t *a_p = (const struct flow_t *)a;
-  const struct flow_t *b_p = (const struct flow_t *)b;
-  return (a_p->flow_x*a_p->flow_x + a_p->flow_y*a_p->flow_y) - (b_p->flow_x*b_p->flow_x + b_p->flow_y*b_p->flow_y);
-}
+

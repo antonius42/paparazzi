@@ -38,10 +38,15 @@ struct opticflow_result_t {
   int16_t flow_x;         //< Flow in x direction from the camera (in subpixels)
   int16_t flow_y;         //< Flow in y direction from the camera (in subpixels)
   int16_t flow_der_x;     //< The derotated flow calculation in the x direction (in subpixels)
-  int16_t flow_der_y;     //< The derotated flow calculation in the y direction (in subpixels)
+  
+  int16_t tot_of_left;	  // Total optic flow left
+  int16_t tot_of_right;	  // Total optic flow right
+  int16_t tot_of_centre;  // Total optic flow centre
 
-  float vel_x;            //< The velocity in the x direction
-  float vel_y;            //< The velocity in the y direction
+//  int16_t flow_der_y;     //< The derotated flow calculation in the y direction (in subpixels)
+
+//  float vel_x;            //< The velocity in the x direction
+//  float vel_y;            //< The velocity in the y direction
 };
 
 /* The state of the drone when it took an image */

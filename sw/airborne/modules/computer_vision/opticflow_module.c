@@ -44,6 +44,7 @@
 PRINT_CONFIG_VAR(OPTICFLOW_AGL_ID);
 
 // Define the downscale factor for the frontal camera
+#include "lib/vision/image.h"
 #define img_downscale_factor 4
 
 /* The main opticflow variables */
@@ -74,11 +75,11 @@ void opticflow_module_init(void)
   opticflow_state.psi = 0;		// Tobias: added psi to the state
   opticflow_state.theta = 0;
   opticflow_state.agl = 0;
-
+  
   // Initialize the opticflow calculation
 //  opticflow_calc_init(&opticflow, 320, 240);		// Tobias: Use this for the downward camera
-  opticflow_calc_init(&opticflow, 1280, 720);		// Tobias: Use this for the frontal camera
-//  opticflow_calc_init(&opticflow, 1280/img_downscale_factor, 720/img_downscale_factor);	// Tobias: Use this for frontal camera scaling.
+//  opticflow_calc_init(&opticflow, 1280, 720);		// Tobias: Use this for the frontal camera
+  opticflow_calc_init(&opticflow, 1280/img_downscale_factor, 720/img_downscale_factor);	// Tobias: Use this for frontal camera scaling.
   opticflow_got_result = FALSE;
 
   /* Try to initialize the video device */
@@ -102,12 +103,7 @@ void opticflow_module_run(void)
   opticflow_state.phi = stateGetNedToBodyEulers_f()->phi;
   opticflow_state.theta = stateGetNedToBodyEulers_f()->theta;
   opticflow_state.psi = stateGetNedToBodyEulers_f()->psi;		// Tobias: added psi to the state
-
-/*  // Update the stabilization loops on the current calculation
-  if(opticflow_got_result) {
-    stabilization_opticflow_update(&opticflow_result);		// Tobias: Remove this stabilization function
-    opticflow_got_result = FALSE;
-  } */
+  
   pthread_mutex_unlock(&opticflow_mutex);
 }
 
@@ -156,20 +152,29 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
   /* Main loop of the optical flow calculation */
   while(TRUE) {
     // Try to fetch an image
-    struct image_t img;
-    v4l2_image_get(opticflow_dev, &img);
+//    struct image_t img;
+//    v4l2_image_get(opticflow_dev, &img);
 
 // ***************** Start downscale the Image *****************
 // Note: When enabling this downscaling, see opticflow_calc_init(&opticflow, 1280, 720), line 82. must be 1280/4, 720/4
 
-//    struct image_t img_orig;		// Tobias: Declare img_orig
-//    v4l2_image_get(opticflow_dev, &img_orig);		// Tobias: Get the image from the camera device and store in img_org (1280,720)
+    struct image_t img_orig;		// Tobias: Declare img_orig
+    v4l2_image_get(opticflow_dev, &img_orig);		// Tobias: Get the image from the camera device and store in img_org (1280,720)
 
-//    struct image_t img;	// Tobias: Declare img
-//    image_yuv422_downsample(&img_orig, &img, 4);		// Tobias: Downsample img_orig with factor 4, store result in img (320,180). see scaling line 47
+    struct image_t img;	// Tobias: Declare img
+    image_create(&img, img_orig.w/img_downscale_factor, img_orig.h/img_downscale_factor, IMAGE_YUV422);
+//    printf("w=%i h=%i 	\n",img.w,img.h);
+    
+//printf("This is the run run 1	\n");
+    image_yuv422_downsample(&img_orig, &img, img_downscale_factor);	// Tobias: Downsample img_orig with factor 4, store result in img (320,180)
+//printf("This is the run run 2	\n");
+
+//printf("orig w=%i h=%i	\n",img_orig.w,img_orig.h);
+//printf("img  w=%i h=%i	\n",img.w,img.h);
+
+//    img = img_orig;
 
 
-//   free(img_orig)	// Tobias: We need to clear this image!!! somehow...
 
 // ***************** End downscale the Image *****************
 
@@ -190,7 +195,8 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
     pthread_mutex_unlock(&opticflow_mutex);
 
     // Free the image
-    v4l2_image_free(opticflow_dev, &img);
+    image_free(&img);
+    v4l2_image_free(opticflow_dev, &img_orig);
   }
 
 }
