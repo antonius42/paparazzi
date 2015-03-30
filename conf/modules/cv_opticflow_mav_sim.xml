@@ -1,0 +1,29 @@
+<!DOCTYPE module SYSTEM "module.dtd">
+
+<module name="cv_opticflow" dir="computer_vision_sim">
+  <doc>
+    <description>
+        Compute Optic Flow from Ardrone2 Bottom Camera
+
+        Computes Pitch- and rollrate corrected optic flow from downward looking
+        ARDrone2 camera looking at a textured floor.
+
+        - Sonar is required.
+        - Controller can hold position
+    </description>
+  </doc> 
+  <header>
+    <file name="opticflow_module.h"/>
+  </header>
+
+  <init fun="opticflow_module_init()"/>
+
+  <periodic fun="opticflow_module_run()" start="opticflow_module_start()" stop="opticflow_module_stop()" autorun="TRUE"/>
+  <makefile target="ap|sim|jsbsim|nps">
+
+    <file name="opticflow_module.c"/>
+    <file name="mavproject_navigation.c" dir="modules/computer_vision_sim/opticflow"/>
+
+  </makefile>
+</module>
+
