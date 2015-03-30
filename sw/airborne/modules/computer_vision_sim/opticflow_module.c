@@ -35,7 +35,7 @@
 #include "math/pprz_algebra_int.h"
 
 
-#define RESET_TIME 0.1
+#define RESET_TIME 2
 #define ITERATIONS_PER_SECOND 500
 
 int counter;
