@@ -26,11 +26,8 @@
   </firmware>
 
   <modules main_freq="512">
-    <!--load name="gps_ubx_ucenter.xml"/-->
-    <load name="send_imu_mag_current.xml"/>
     <load name="file_logger.xml"/>
-    <load name="cv_opticflow.xml"/>	<!--load name="cv_opticflow_mav.xml"/-->
-    <!--  load name="../../sw/ext/ardrone2_vision/modules/Mjpeg/ViewVideo.xml"/-->
+    <load name="cv_opticflow.xml"/>
   </modules>
 
   <commands>
