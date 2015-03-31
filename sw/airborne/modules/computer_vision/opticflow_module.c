@@ -36,6 +36,7 @@
 #include "lib/v4l/v4l2.h"
 #include "lib/encoding/jpeg.h"
 #include "lib/encoding/rtp.h"
+#include "opticflow/mavproject_navigation.h"
 
 /* default sonar/agl to use in opticflow visual_estimator */
 #ifndef OPTICFLOW_AGL_ID
@@ -47,6 +48,14 @@ PRINT_CONFIG_VAR(OPTICFLOW_AGL_ID);
 #include "lib/vision/image.h"
 #define img_downscale_factor 4
 
+// Define waypoint movement frequency
+#define NAV_UPDATE_COUNT 5
+// Define navigation settings/thresholds
+#define NAV_HEADING_CHANGE 1000
+#define NAV_WAYPOINT_DISPLACEMENT 10
+#define NAV_TURN_THRESHOLD 2000
+#define NAV_STOP_THRESHOLD 5000
+
 /* The main opticflow variables */
 static struct opticflow_t opticflow;                //< Opticflow calculations
 static struct opticflow_result_t opticflow_result;  //< The opticflow result		//defined in inter_thread_data.h
@@ -56,6 +65,10 @@ static abi_event opticflow_agl_ev;                  //< The altitude ABI event
 static pthread_t opticflow_calc_thread;             //< The optical flow calculation thread
 static bool_t opticflow_got_result;                 //< When we have an optical flow calculation
 static pthread_mutex_t opticflow_mutex;             //< Mutex lock fo thread safety
+
+/* Navigation housekeeping*/
+int nav_counter;                                    //< Counter that regulates updating of the waypoint
+float OF_left_av, OF_right_av, OF_total_av;         //< Average values of measured optical flow
 
 /* Static functions */
 static void *opticflow_module_calc(void *data);                   //< The main optical flow calculation thread
@@ -75,6 +88,12 @@ void opticflow_module_init(void)
   opticflow_state.psi = 0;		// Tobias: added psi to the state
   opticflow_state.theta = 0;
   opticflow_state.agl = 0;
+
+  // Initialize navigation counters/averages
+  nav_counter = 0;
+  OF_left_av  = 0.0;
+  OF_right_av = 0.0;
+  OF_total_av = 0.0;
   
   // Initialize the opticflow calculation
 //  opticflow_calc_init(&opticflow, 320, 240);		// Tobias: Use this for the downward camera
@@ -197,6 +216,37 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
     // Free the image
     image_free(&img);
     v4l2_image_free(opticflow_dev, &img_orig);
+
+    // On-line averaging of optical flow
+    nav_counter++;
+    OF_left_av = OF_left_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of_left/nav_counter;
+    OF_right_av = OF_right_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of_right/nav_counter;
+    OF_total_av = OF_total_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of/nav_counter;
+
+    // Perform navigation commands
+    if (nav_counter == NAV_UPDATE_COUNT) {
+      int32_t heading_change = 0;
+      // Turn if significant optical flow is found
+      if (OF_total_av > NAV_TURN_THRESHOLD) {
+        if (OF_left_av > OF_right_av) {
+          // Turn right
+          heading_change = NAV_HEADING_CHANGE;
+          printf("Going right");
+        }
+        if (OF_left_av < OF_right_av) {
+          // Turn left
+          heading_change = -NAV_HEADING_CHANGE;
+          printf("Going left");
+        }
+      }
+      obstacle_avoidance_update_waypoint(heading_change, NAV_WAYPOINT_DISPLACEMENT);
+      // Stop if too close to object
+      if (OF_total_av > NAV_STOP_THRESHOLD) {
+        printf("STOP AND TURN");
+        obstacle_avoidance_stop();
+      }
+      nav_counter = 0;
+    }
   }
 
 }
