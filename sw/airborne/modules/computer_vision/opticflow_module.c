@@ -273,11 +273,21 @@ static void *opticflow_module_calc(void *data __attribute__((unused))) {
       	// Stop if too close to object
       	if (OF_total_av > NAV_STOP_THRESHOLD_OF)  {
         	printf("STOP AND TURN (OF) \n");
-        	obstacle_avoidance_stop();
+        	if (OF_left_av < OF_right_av) {
+        		obstacle_avoidance_stop_go_left();
+        	}
+        	else {
+        		obstacle_avoidance_stop_go_right();
+        	}
       	}
       	if (OF_fz_av > NAV_STOP_THRESHOLD_FZ) {
       		printf("STOP AND TURN (FZ) \n");
-        	obstacle_avoidance_stop();
+        	if (OF_left_av < OF_right_av) {
+        		obstacle_avoidance_stop_go_left();
+        	}
+        	else {
+        		obstacle_avoidance_stop_go_right();
+        	}
       	}
       }
       obstacle_avoidance_update_waypoint(heading_change, NAV_WAYPOINT_DISPLACEMENT); 

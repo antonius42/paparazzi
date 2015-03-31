@@ -11,6 +11,7 @@
 
 
 void obstacle_avoidance_update_waypoint(int32_t heading_change, int32_t displacement);
-void obstacle_avoidance_stop(void);
+void obstacle_avoidance_stop_go_left(void);
+void obstacle_avoidance_stop_go_right(void);
 
 #endif

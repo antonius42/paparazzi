@@ -29,7 +29,12 @@ void obstacle_avoidance_update_waypoint(int32_t heading_change, int32_t displace
 	nav_set_heading_towards_waypoint(WP_TO);
 }
 
-void obstacle_avoidance_stop(void)
+void obstacle_avoidance_stop_go_left(void)
 {
     GotoBlock(8); // IMPORTANT: this number changes when we update the flight plan
+}
+
+void obstacle_avoidance_stop_go_right(void)
+{
+    GotoBlock(9); // IMPORTANT: this number changes when we update the flight plan
 }
