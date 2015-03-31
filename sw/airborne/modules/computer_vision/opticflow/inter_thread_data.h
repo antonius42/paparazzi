@@ -42,6 +42,9 @@ struct opticflow_result_t {
   float tot_of_left;	  // Total optic flow left
   float tot_of_right;	  // Total optic flow right
   float tot_of;	  // Total optic flow
+  
+  int16_t of_featurelesszone;		// Maximum distance between to features.
+  int16_t of_featurelesszone_pos;	// Location of the featureless zone.
 };
 
 /* The state of the drone when it took an image */

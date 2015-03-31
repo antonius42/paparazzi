@@ -151,11 +151,11 @@ printf("pause;	\n");  */
 
 
 // ***************** Start Display optic flow results ***************** 
-
+/*
 for (int i = 0; i < result->corner_cnt;i++){
 printf("dx=%i, ",vectors[i].flow_x);
 }
-printf("	\n"); 
+printf("	\n"); */
 // ***************** End Display optic flow results ***************** 
 
 
@@ -236,20 +236,30 @@ for (int i = 0; i < result->tracked_cnt; i++){
 }
 // ***************** End sorting Left, Right and center position of optic flow vectos ***************** 
 
-
-// ***************** Start Display Total optic flows ***************** 
-//printf("Left %f	\n",result->tot_of_left);
-//printf("Right %f	\n",result->tot_of_right);
-//printf("Total %f	\n",result->tot_of);
-// ***************** End Display Total optic flows ***************** 
-
 // ***************** Start Display results ***************** 
 //printf("psi_f = %0.3f	\n",stateGetNedToBodyEulers_f()->phi);
 //printf("psi = %0.3f, dpsi = %0.3f	\n",att_state->psi,att_state->psi - opticflow->prev_psi);
 //printf("phi = %0.3f, dphi = %0.3f	\n",att_state->phi,att_state->phi - opticflow->prev_phi);
-printf("   derotated: left  %0.3f, yaw_induced_dx = %0.3f	\n",result->tot_of_left,diff_flow_x_psi);
-printf("   derotated: right %0.3f, yaw_induced_dx = %0.3f	\n",result->tot_of_right,diff_flow_x_psi);
+//printf("   derotated: left  %0.3f, yaw_induced_dx = %0.3f	\n",result->tot_of_left,diff_flow_x_psi);
+//printf("   derotated: right %0.3f, yaw_induced_dx = %0.3f	\n",result->tot_of_right,diff_flow_x_psi);
+//printf("   derotated: total %0.3f	\n",result->tot_of);
 // ***************** End Display results ***************** 
+
+uint16_t corner_separation = 0;		// horizontal distance between two points
+uint16_t loc_feature = 0;		// corresponding location
+
+result->of_featurelesszone = 0;		// (Re)set value to size of featureless zone
+result->of_featurelesszone_pos = 1;		// (Re)set value to size of featureless zone
+
+for(int i = 0; i < (result->tracked_cnt - 1);i++){
+
+  corner_separation = corners[i+1].x - corners[i].x;		// Distance between 2 consecutive corners
+  if(corner_separation > result->of_featurelesszone){
+    result->of_featurelesszone = corner_separation;		// Largest featureless zone of current frame
+    loc_feature = corner_separation /2 + corners[i].x;		// Middle of featureless zone
+    result->of_featurelesszone_pos = loc_feature;		// Store middle of featureless zone in result struct
+  }
+}
 
 
 
