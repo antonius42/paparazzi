@@ -28,284 +28,120 @@
 
 #include "opticflow_module.h"
 
-#include <stdio.h>
+// Computervision Runs in a thread
+#include "opticflow/opticflow_thread.h"
+#include "opticflow/inter_thread_data.h"
+
+// Navigate Based On Vision, needed to call init/run_hover_stabilization_onvision
+#include "opticflow/hover_stabilization.h"
+
+// Threaded computer vision
 #include <pthread.h>
+
+// Sockets
+#include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int cv_sockets[2];
+
+// Paparazzi Data
 #include "state.h"
 #include "subsystems/abi.h"
 
-#include "lib/v4l/v4l2.h"
-#include "lib/encoding/jpeg.h"
-#include "lib/encoding/rtp.h"
-#include "opticflow/mavproject_navigation.h"
-#include "firmwares/rotorcraft/guidance/guidance_h.h"
-#include "generated/flight_plan.h"
+// Downlink
+#include "subsystems/datalink/downlink.h"
 
-/* default sonar/agl to use in opticflow visual_estimator */
+
+struct PPRZinfo opticflow_module_data;
+
+/** height above ground level, from ABI
+ * Used for scale computation, negative value means invalid.
+ */
+/** default sonar/agl to use in opticflow visual_estimator */
 #ifndef OPTICFLOW_AGL_ID
 #define OPTICFLOW_AGL_ID ABI_BROADCAST
 #endif
-PRINT_CONFIG_VAR(OPTICFLOW_AGL_ID);
+abi_event agl_ev;
+static void agl_cb(uint8_t sender_id, float distance);
 
-// Define the downscale factor for the frontal camera
-#include "lib/vision/image.h"
-#define img_downscale_factor 4
+static void agl_cb(uint8_t sender_id __attribute__((unused)), float distance)
+{
+  if (distance > 0) {
+    opticflow_module_data.agl = distance;
+  }
+}
 
-// Define waypoint movement frequency
-#define NAV_UPDATE_COUNT 8
-// Define navigation settings/thresholds
-#define NAV_HEADING_CHANGE 500
-#define NAV_WAYPOINT_DISPLACEMENT 10
-#define NAV_TURN_THRESHOLD_OF 1500
-#define NAV_STOP_THRESHOLD_OF 4000
-#define NAV_TURN_THRESHOLD_FZ 80
-#define NAV_STOP_THRESHOLD_FZ 100
+#define DEBUG_INFO(X, ...) ;
 
-/* The main opticflow variables */
-static struct opticflow_t opticflow;                //< Opticflow calculations
-static struct opticflow_result_t opticflow_result;  //< The opticflow result		//defined in inter_thread_data.h
-static struct opticflow_state_t opticflow_state;    //< State of the drone to communicate with the opticflow
-static struct v4l2_device *opticflow_dev;           //< The opticflow camera V4L2 device
-static abi_event opticflow_agl_ev;                  //< The altitude ABI event
-static pthread_t opticflow_calc_thread;             //< The optical flow calculation thread
-static bool_t opticflow_got_result;                 //< When we have an optical flow calculation
-static pthread_mutex_t opticflow_mutex;             //< Mutex lock fo thread safety
-
-/* Navigation housekeeping*/
-int nav_counter;                                    //< Counter that regulates updating of the waypoint
-float OF_left_av, OF_right_av, OF_total_av;         //< Average values of measured optical flow
-float OF_fz_av, OF_fz_pos_av;
-
-/* Static functions */
-static void *opticflow_module_calc(void *data);                   //< The main optical flow calculation thread
-static void opticflow_agl_cb(uint8_t sender_id, float distance);  //< Callback function of the ground altitude
-
-
-/**
- * Initialize the optical flow module for the bottom camera
- */
 void opticflow_module_init(void)
 {
-  // Subscribe to the altitude above ground level ABI messages
-  AbiBindMsgAGL(OPTICFLOW_AGL_ID, &opticflow_agl_ev, opticflow_agl_cb);
+  // get AGL from sonar via ABI
+  AbiBindMsgAGL(OPTICFLOW_AGL_ID, &agl_ev, agl_cb);
 
-  // Set the opticflow state to 0
-  opticflow_state.phi = 0;
-  opticflow_state.psi = 0;		// Tobias: added psi to the state
-  opticflow_state.theta = 0;
-  opticflow_state.agl = 0;
+  // Initialize local data
+  opticflow_module_data.cnt = 0;
+  opticflow_module_data.phi = 0;
+  opticflow_module_data.theta = 0;
+  opticflow_module_data.agl = 0;
 
-  // Initialize navigation counters/averages
-  nav_counter = 0;
-  OF_left_av  = 0.0;
-  OF_right_av = 0.0;
-  OF_total_av = 0.0;
-  OF_fz_av = 0.0;
-  OF_fz_pos_av = 0.0;
-  
-  // Initialize the opticflow calculation
-//  opticflow_calc_init(&opticflow, 320, 240);		// Tobias: Use this for the downward camera
-//  opticflow_calc_init(&opticflow, 1280, 720);		// Tobias: Use this for the frontal camera
-  opticflow_calc_init(&opticflow, 1280/img_downscale_factor, 720/img_downscale_factor);	// Tobias: Use this for frontal camera scaling.
-  opticflow_got_result = FALSE;
-
-  /* Try to initialize the video device */
-  //v4l2_init_subdev("/dev/v4l-subdev0", 0, 1, V4L2_MBUS_FMT_UYVY8_2X8, 320, 240);
-//  opticflow_dev = v4l2_init("/dev/video2", 320, 240, 60); //TODO: Fix defines          // Tobias: Use this for downwards camera
-  opticflow_dev = v4l2_init("/dev/video1", 1280, 720, 60); //TODO: Fix defines		// Tobias: Use this for frontal camera
-  
-  // Set navigation max speed
-  guidance_h_SetMaxSpeed(0.4);
-  
-  if (opticflow_dev == NULL) {
-    printf("[opticflow_module] Could not initialize the video device\n");
-  }
+  // Stabilization Code Initialization
+  init_hover_stabilization_onvision();
 }
 
-/**
- * Update the optical flow state for the calculation thread
- * and update the stabilization loops with the newest result
- */
+
 void opticflow_module_run(void)
 {
-  pthread_mutex_lock(&opticflow_mutex);
   // Send Updated data to thread
-  opticflow_state.phi = stateGetNedToBodyEulers_f()->phi;
-  opticflow_state.theta = stateGetNedToBodyEulers_f()->theta;
-  opticflow_state.psi = stateGetNedToBodyEulers_f()->psi;		// Tobias: added psi to the state
-  
-  pthread_mutex_unlock(&opticflow_mutex);
+  opticflow_module_data.cnt++;
+  opticflow_module_data.phi = stateGetNedToBodyEulers_f()->phi;
+  opticflow_module_data.theta = stateGetNedToBodyEulers_f()->theta;
+  int bytes_written = write(cv_sockets[0], &opticflow_module_data, sizeof(opticflow_module_data));
+  if (bytes_written != sizeof(opticflow_module_data) && errno !=4){
+    printf("[module] Failed to write to socket: written = %d, error=%d, %s.\n",bytes_written, errno, strerror(errno));
+  }
+  else {
+    DEBUG_INFO("[module] Write # %d (%d bytes)\n",opticflow_module_data.cnt, bytes_written);
+  }
+
+  // Read Latest Vision Module Results
+  struct CVresults vision_results;
+  // Warning: if the vision runs faster than the module, you need to read multiple times
+  int bytes_read = recv(cv_sockets[0], &vision_results, sizeof(vision_results), MSG_DONTWAIT);
+  if (bytes_read != sizeof(vision_results)) {
+    if (bytes_read != -1) {
+      printf("[module] Failed to read %d bytes: CV results from socket errno=%d.\n",bytes_read, errno);
+    }
+  } else {
+    ////////////////////////////////////////////
+    // Module-Side Code
+    ////////////////////////////////////////////
+    DEBUG_INFO("[module] Read vision %d\n",vision_results.cnt);
+    run_hover_stabilization_onvision(&vision_results);
+  }
 }
 
-/**
- * Start the optical flow calculation
- */
 void opticflow_module_start(void)
 {
-  // Check if we are not already running
-  if(opticflow_calc_thread != 0) {
-    printf("[opticflow_module] Opticflow already started!\n");
-    return;
-  }
-
-  // Create the opticalflow calculation thread
-  int rc = pthread_create(&opticflow_calc_thread, NULL, opticflow_module_calc, NULL);
-  if (rc) {
-    printf("[opticflow_module] Could not initialize opticflow thread (return code: %d)\n", rc);
-  }
-}
-
-/**
- * Stop the optical flow calculation
- */
-void opticflow_module_stop(void)
-{
-  // Stop the capturing
-  v4l2_stop_capture(opticflow_dev);
-
-  // TODO: fix thread stop
-}
-
-/**
- * The main optical flow calculation thread
- * This thread passes the images trough the optical flow
- * calculator based on Lucas Kanade
- */
-#include "errno.h"
-static void *opticflow_module_calc(void *data __attribute__((unused))) {
-  // Start the streaming on the V4L2 device
-  if(!v4l2_start_capture(opticflow_dev)) {
-    printf("[opticflow_module] Could not start capture of the camera\n");
-    return 0;
-  }
-
-  /* Main loop of the optical flow calculation */
-  while(TRUE) {
-    // Try to fetch an image
-//    struct image_t img;
-//    v4l2_image_get(opticflow_dev, &img);
-
-// ***************** Start downscale the Image *****************
-// Note: When enabling this downscaling, see opticflow_calc_init(&opticflow, 1280, 720), line 82. must be 1280/4, 720/4
-
-    struct image_t img_orig;		// Tobias: Declare img_orig
-    v4l2_image_get(opticflow_dev, &img_orig);		// Tobias: Get the image from the camera device and store in img_org (1280,720)
-
-    struct image_t img;	// Tobias: Declare img
-    image_create(&img, img_orig.w/img_downscale_factor, img_orig.h/img_downscale_factor, IMAGE_YUV422);
-//    printf("w=%i h=%i 	\n",img.w,img.h);
-    
-//printf("This is the run run 1	\n");
-    image_yuv422_downsample(&img_orig, &img, img_downscale_factor);	// Tobias: Downsample img_orig with factor 4, store result in img (320,180)
-//printf("This is the run run 2	\n");
-
-//printf("orig w=%i h=%i	\n",img_orig.w,img_orig.h);
-//printf("img  w=%i h=%i	\n",img.w,img.h);
-
-//    img = img_orig;
-
-
-
-// ***************** End downscale the Image *****************
-
-    // Copy the state
-    pthread_mutex_lock(&opticflow_mutex);
-    struct opticflow_state_t temp_state;
-    memcpy(&temp_state, &opticflow_state, sizeof(struct opticflow_state_t));
-    pthread_mutex_unlock(&opticflow_mutex);
-
-    // Do the optical flow calculation
-    struct opticflow_result_t temp_result;
-    opticflow_calc_frame(&opticflow, &temp_state, &img, &temp_result);
-
-    // Copy the result if finished
-    pthread_mutex_lock(&opticflow_mutex);
-    memcpy(&opticflow_result, &temp_result, sizeof(struct opticflow_result_t));
-    opticflow_got_result = TRUE;
-    pthread_mutex_unlock(&opticflow_mutex);
-
-    // Free the image
-    image_free(&img);
-    v4l2_image_free(opticflow_dev, &img_orig);
-
-    // On-line averaging of optical flow
-    nav_counter++;
-    OF_left_av = OF_left_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of_left/nav_counter;
-    OF_right_av = OF_right_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of_right/nav_counter;
-    OF_total_av = OF_total_av/nav_counter*(nav_counter-1) + opticflow_result.tot_of/nav_counter;
-    OF_fz_av = OF_fz_av/nav_counter*(nav_counter-1) + (1.0*opticflow_result.of_featurelesszone)/nav_counter;
-    OF_fz_pos_av = OF_fz_pos_av/nav_counter*(nav_counter-1) + (1.0*opticflow_result.of_featurelesszone_pos)/nav_counter;
-    // Perform navigation commands
-    if (nav_counter == NAV_UPDATE_COUNT) {
-      int32_t heading_change = 0;
-      printf("Featureless zone size = %0.3f, position %0.3f \n",OF_fz_av, OF_fz_pos_av);
-      printf("Total of left = %0.3f	\n",OF_left_av);
-      printf("Total of right = %0.3f	\n",OF_right_av);    
-      printf("Total of total = %0.3f	\n",OF_total_av);
-      // Reset the counter
-      nav_counter = 0;
-      // Turn if significant optical flow is found
-      if (nav_block == 6) {
-      	if (OF_total_av > NAV_TURN_THRESHOLD_OF) {
-        	if (OF_left_av > OF_right_av) {
-          	// Turn right
-          	heading_change = NAV_HEADING_CHANGE;
-          	printf("Going right (OF) \n"); 
-        	}
-        	if (OF_left_av < OF_right_av) {
-        	  // Turn left
-        	  heading_change = -NAV_HEADING_CHANGE;
-        	  printf("Going left (OF)\n");
-        	}
-      	}
-      	if (OF_fz_av > NAV_TURN_THRESHOLD_FZ) {
-        	if (OF_fz_pos_av < 320/2) {
-          	// Turn right
-          	heading_change = NAV_HEADING_CHANGE;
-          	printf("Going right (FZ)\n"); 
-        	}
-        	if (OF_fz_pos_av > 320/2) {
-        	  // Turn left
-        	  heading_change = -NAV_HEADING_CHANGE;
-        	  printf("Going left (FZ)\n");
-        	}
-      	}
-      	
-      	// Stop if too close to object
-      	if (OF_total_av > NAV_STOP_THRESHOLD_OF)  {
-        	printf("STOP AND TURN (OF) \n");
-        	if (OF_left_av < OF_right_av) {
-        		obstacle_avoidance_stop_go_left();
-        	}
-        	else {
-        		obstacle_avoidance_stop_go_right();
-        	}
-      	}
-      	if (OF_fz_av > NAV_STOP_THRESHOLD_FZ) {
-      		printf("STOP AND TURN (FZ) \n");
-        	if (OF_left_av < OF_right_av) {
-        		obstacle_avoidance_stop_go_left();
-        	}
-        	else {
-        		obstacle_avoidance_stop_go_right();
-        	}
-      	}
-      }
-      obstacle_avoidance_update_waypoint(heading_change, NAV_WAYPOINT_DISPLACEMENT); 
+  pthread_t computervision_thread;
+  if (socketpair(AF_UNIX, SOCK_DGRAM, 0, cv_sockets) == 0) {
+    ////////////////////////////////////////////
+    // Thread-Side Code
+    ////////////////////////////////////////////
+    int rc = pthread_create(&computervision_thread, NULL, computervision_thread_main,
+                            &cv_sockets[1]);
+    if (rc) {
+      printf("ctl_Init: Return code from pthread_create(mot_thread) is %d\n", rc);
     }
   }
+  else {
+    perror("Could not create socket.\n");
+  }
 }
 
-
-
-/**
- * Get the altitude above ground of the drone
- * @param[in] sender_id The id that send the ABI message (unused)
- * @param[in] distance The distance above ground level in meters
- */
-static void opticflow_agl_cb(uint8_t sender_id __attribute__((unused)), float distance)
+void opticflow_module_stop(void)
 {
-  // Update the distance if we got a valid measurement
-  if (distance > 0) {
-    opticflow_state.agl = distance;
-  }
+  computervision_thread_request_exit();
 }

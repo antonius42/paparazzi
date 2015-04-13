@@ -27,8 +27,7 @@
   </firmware>
 
   <modules main_freq="512">
-    <!--load name="send_imu_mag_current.xml"/-->
-		<load name="cv_opticflow.xml"/>
+		<load name="ae4317_obstacle_avoidance.xml"/>
   </modules>
 
   <commands>

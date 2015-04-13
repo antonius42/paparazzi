@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Hann Woei Ho
+ * Copyright (C) 2015 The Paparazzi Community
  *
  * This file is part of Paparazzi.
  *
@@ -19,21 +19,15 @@
  */
 
 /**
- * @file modules/computer_vision/opticflow_module.h
- * @brief optical-flow based hovering for Parrot AR.Drone 2.0
+ * @file modules/computer_vision/opticflow/opticflow_thread.h
+ * @brief computer vision thread
  *
- * Sensors from vertical camera and IMU of Parrot AR.Drone 2.0
  */
 
-#ifndef OPTICFLOW_MODULE_H
-#define OPTICFLOW_MODULE_H
+#ifndef OPTICFLOW_THREAD_H
+#define OPTICFLOW_THREAD_H
 
-#include "std.h"
+void *computervision_thread_main(void *args);  /* computer vision thread: should be given a pointer to a socketpair as argument */
+void computervision_thread_request_exit(void);
 
-// Module functions
-extern void opticflow_module_init(void);
-extern void opticflow_module_run(void);
-extern void opticflow_module_start(void);
-extern void opticflow_module_stop(void);
-
-#endif /* OPTICFLOW_MODULE_H */
+#endif

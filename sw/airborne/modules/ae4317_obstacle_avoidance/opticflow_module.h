@@ -20,15 +20,21 @@
 
 /**
  * @file modules/computer_vision/opticflow_module.h
- * @brief optical-flow based hovering for Parrot AR.Drone 2.0
- *
- * Sensors from vertical camera and IMU of Parrot AR.Drone 2.0
+ * @brief optical-flow based obstacle avoidance module 
+ * 
+ * Main code of the obstacle avoidance module based on optical flow/featureless zone.
+ * Defines optical flow estimation thread, which also controls the navigation for obstacle avoidance.
+ * 
+ * AE4317 'Autonomous Flight of MAVs' - Obstacle Avoidance Competition
+ * Delft University of Technology
+ * Faculty of Aerospace Engineering
+ * Department of Control & Simulation
  */
 
 #ifndef OPTICFLOW_MODULE_H
 #define OPTICFLOW_MODULE_H
 
-#include "std.h"
+#include "opticflow/opticflow_calculator.h"
 
 // Module functions
 extern void opticflow_module_init(void);

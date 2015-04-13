@@ -19,21 +19,23 @@
  */
 
 /**
- * @file modules/computer_vision/opticflow_module.h
- * @brief optical-flow based hovering for Parrot AR.Drone 2.0
+ * @file modules/computer_vision/opticflow/visual_estimator.h
+ * @brief Estimate velocity from optic flow.
  *
- * Sensors from vertical camera and IMU of Parrot AR.Drone 2.0
+ * Using sensors from vertical camera and IMU of Parrot AR.Drone 2.0
  */
 
-#ifndef OPTICFLOW_MODULE_H
-#define OPTICFLOW_MODULE_H
+#ifndef VISUAL_ESTIMATOR_H
+#define VISUAL_ESTIMATOR_H
 
-#include "std.h"
+#include "inter_thread_data.h"
 
-// Module functions
-extern void opticflow_module_init(void);
-extern void opticflow_module_run(void);
-extern void opticflow_module_start(void);
-extern void opticflow_module_stop(void);
+/**
+ * Initialize visual estimator.
+ * @param w  image width
+ * @param h  image height
+ */
+void opticflow_plugin_init(unsigned int w, unsigned int h, struct CVresults *results);
+void opticflow_plugin_run(unsigned char *frame, struct PPRZinfo* info, struct CVresults* results);
 
-#endif /* OPTICFLOW_MODULE_H */
+#endif /* VISUAL_ESTIMATOR_H */

@@ -29,30 +29,28 @@
 #ifndef _INTER_THREAD_DATA_H
 #define _INTER_THREAD_DATA_H
 
-/* The result calculated from the opticflow */
-struct opticflow_result_t {
-  float fps;              //< Frames per second of the optical flow calculation
-  uint16_t corner_cnt;    //< The amount of coners found by FAST9
-  uint16_t tracked_cnt;   //< The amount of tracked corners
+/// Data from thread to module
+struct CVresults {
+  int cnt;          // Number of processed frames
 
-  float flow_x;         //< Flow in x direction from the camera (in subpixels)
-  int16_t flow_y;         //< Flow in y direction from the camera (in subpixels)
-  float flow_der_x;     //< The derotated flow calculation in the x direction (in subpixels)
-  
-  float tot_of_left;	  // Total optic flow left
-  float tot_of_right;	  // Total optic flow right
-  float tot_of;	  // Total optic flow
-  
-  int16_t of_featurelesszone;		// Maximum distance between to features.
-  int16_t of_featurelesszone_pos;	// Location of the featureless zone.
+  float Velx;       // Velocity as measured by camera
+  float Vely;
+  int flow_count;
+
+  float cam_h;      // Debug parameters
+  int count;
+  float OFx, OFy, dx_sum, dy_sum;
+  float diff_roll;
+  float diff_pitch;
+  float FPS;
 };
 
-/* The state of the drone when it took an image */
-struct opticflow_state_t {
-  float phi;      //< roll [rad]
-  float psi;	  //< yaw [rad]		// Tobias: added psi to the state
-  float theta;    //< pitch [rad]
-  float agl;      //< height above ground [m]
+/// Data from module to thread
+struct PPRZinfo {
+  int cnt;        // IMU msg counter
+  float phi;      // roll [rad]
+  float theta;    // pitch [rad]
+  float agl;      // height above ground [m]
 };
 
 #endif
