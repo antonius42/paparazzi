@@ -28,7 +28,7 @@
  * The total optical flows in the left and right part, and the total absolute flow, 
  * are determined and returned.
  * 
- * AE4317 'Autonomous Flight of MAVs' - Obstacle Avoidance Competition
+ * AE4317 'Autonomous Flight of MAVs' - Obstacle Avoidance Competition Group 3
  * Delft University of Technology
  * Faculty of Aerospace Engineering
  * Department of Control & Simulation

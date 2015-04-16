@@ -5,7 +5,7 @@
  * Functions for updating a waypoint, and stopping (switching to a different flight plan block)
  * NOTE: this code needs a specific flight plan, in order to use the correct blocks and waypoint for navigation
  * 
- * AE4317 'Autonomous Flight of MAVs' - Obstacle Avoidance Competition
+ * AE4317 'Autonomous Flight of MAVs' - Obstacle Avoidance Competition Group 3
  * Delft University of Technology
  * Faculty of Aerospace Engineering
  * Department of Control & Simulation
